@@ -9,6 +9,7 @@ dependencies:
   - scikit-image
   - keras-gpu
   - pytorch
+  - torchvision
   - cuda100
   - opencv
   - matplotlib
@@ -19,3 +20,4 @@ dependencies:
       - "git+https://github.com/philferriere/cocoapi.git#egg=pycocotools&subdirectory=PythonAPI"
       - "git+https://github.com/matterport/Mask_RCNN.git"
       - "git+https://github.com/jfajkowski/PConv-Keras.git"
+      - "git+https://github.com/jfajkowski/edge-connect.git"
