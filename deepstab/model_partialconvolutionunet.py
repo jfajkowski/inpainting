@@ -51,7 +51,7 @@ class PartialConvolutionUNet(nn.Module):
         d_image_out1, d_mask_out1 = self.d_conv1(d_image_out2, d_mask_out2, image_in, mask_in)
         image_out, mask_out = torch.sigmoid(self.out(d_image_out1)), d_mask_out1
 
-        return image_out, mask_out
+        return image_out
 
 
 class Down(nn.Module):

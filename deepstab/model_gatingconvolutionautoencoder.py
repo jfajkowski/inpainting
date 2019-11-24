@@ -7,9 +7,9 @@ from torchvision.transforms import transforms
 from deepstab.utils import extract_mask, cutout_mask
 
 
-class Inpainter(nn.Module):
+class Generator(nn.Module):
     def __init__(self):
-        super(Inpainter, self).__init__()
+        super(Generator, self).__init__()
 
         self.model = nn.Sequential(
             Down(4, 64, 7, bn=False),
@@ -92,10 +92,20 @@ class Discriminator(nn.Module):
 
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=5, stride=2, padding=2, padding_mode='same'),
+            nn.BatchNorm2d(64),
+            nn.ELU(),
             nn.Conv2d(64, 128, kernel_size=5, stride=2, padding=2, padding_mode='same'),
+            nn.BatchNorm2d(128),
+            nn.ELU(),
             nn.Conv2d(128, 256, kernel_size=5, stride=2, padding=2, padding_mode='same'),
+            nn.BatchNorm2d(256),
+            nn.ELU(),
             nn.Conv2d(256, 512, kernel_size=5, stride=2, padding=2, padding_mode='same'),
-            nn.Conv2d(512, 512, kernel_size=5, stride=2, padding=2, padding_mode='same')
+            nn.BatchNorm2d(512),
+            nn.ELU(),
+            nn.Conv2d(512, 512, kernel_size=5, stride=2, padding=2, padding_mode='same'),
+            nn.BatchNorm2d(512),
+            nn.ELU()
         )
         self.classifier = nn.Sequential(
             nn.Linear(512 * 8 * 8, 1),
@@ -113,7 +123,7 @@ if __name__ == '__main__':
     mask = extract_mask(Image.open('../data/raw/video/DAVIS/Annotations_unsupervised/480p/breakdance/00000.png'), 1)
     masked_image = cutout_mask(image, mask)
 
-    generator = Inpainter().cuda()
+    generator = Generator().cuda()
     discriminator = Discriminator().cuda()
     criterion = torch.nn.BCELoss().cuda()
 

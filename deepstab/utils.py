@@ -5,6 +5,7 @@ import time
 import cv2 as cv
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
 
 
 def cutout_mask(frame, mask, dilate_mask=True):
@@ -192,6 +193,59 @@ class Progbar(object):
 
     def add(self, n, values=None):
         self.update(self._seen_so_far + n, values)
+
+
+class TQDMProgressBar(object):
+    def __init__(self, epochs, steps):
+        self.epoch = 1
+        self.epochs = epochs
+        self.steps = steps
+        self.progress_bar = tqdm(total=steps, unit='step')
+        self.observed = {}
+
+    def add(self, name, value):
+        if name in self.observed:
+            self.observed[name].append(value)
+        else:
+            self.observed[name] = [value]
+
+    def next_epoch(self):
+        self.progress_bar.close()
+        if self.epoch < self.epochs:
+            self.progress_bar = tqdm(total=self.steps, unit='step')
+        self.epoch += 1
+        self.observed = {}
+
+    def next_step(self):
+        self.progress_bar.update()
+
+    def update(self):
+        description = f'Epoch: {self.epoch} - '
+        for k, v in self.observed.items():
+            description += f'{k}: {np.mean(v):.3f} '
+        self.progress_bar.set_description(description)
+
+
+def logs_to_writer(writer, logs, epoch):
+    name_to_values = {}
+    for name, value in logs:
+        if name in name_to_values:
+            name_to_values[name].append(value)
+        else:
+            name_to_values[name] = [value]
+
+    for name, values in name_to_values.items():
+        if 'val_' in name:
+            name = name.replace('val_', '') + '/val'
+        else:
+            name = name + '/train'
+        writer.add_scalar(name, np.mean(values), epoch)
+
+
+def cycle(iterable):
+    while True:
+        for x in iter(iterable):
+            yield x
 
 
 if __name__ == '__main__':

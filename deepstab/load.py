@@ -101,7 +101,7 @@ class InpaintingImageDataset(Dataset):
 
     def __getitem__(self, index: int):
         image = self.image_dataset.__getitem__(index)[0]
-        mask = next(self.mask_generator).convert('L')
+        mask = next(self.mask_generator).convert('RGB')
         image_masked = cutout_mask(image, mask)
 
         if self.transforms is not None:
