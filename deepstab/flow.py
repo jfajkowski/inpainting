@@ -1,12 +1,13 @@
 import math
 
 import flowiz as fz
-import pwc.model as pwc
 import skimage.io as io
 import torch
 import torch.nn.functional as F
 from PIL import Image
 from torchvision.transforms.functional import to_tensor, to_pil_image
+
+from deepstab.pwcnet.model import PWCNet
 
 
 def estimate_flow(model, x_1, x_2):
@@ -58,18 +59,37 @@ def warp_tensor(x, flow, padding_mode='zeros'):
 
 
 if __name__ == '__main__':
-    image_first = Image.open('../data/raw/demo/JPEGImages/00000.jpg')
-    image_second = Image.open('../data/raw/demo/JPEGImages/00001.jpg')
+    image_first = Image.open('../data/raw/video/DAVIS/JPEGImages/480p/crossing/00003.jpg')
+    image_second = Image.open('../data/raw/video/DAVIS/JPEGImages/480p/crossing/00004.jpg')
+    image_third = Image.open('../data/raw/video/DAVIS/JPEGImages/480p/crossing/00005.jpg')
 
-    tensor_first = to_tensor(image_first).float().flip(2) * (1.0 / 255.0)
-    tensor_second = to_tensor(image_second).float().flip(2) * (1.0 / 255.0)
+    tensor_first = to_tensor(image_first).flip(2)
+    tensor_second = to_tensor(image_second).flip(2)
+    tensor_third = to_tensor(image_third).flip(2)
 
-    model = pwc.Network().cuda().eval()
+    model = PWCNet('../models/pwcnet/network-default.pytorch').cuda().eval()
+
     tensor_flow = estimate_flow(model, tensor_first, tensor_second).detach().flip(2)
-    tensor_warp = warp_tensor(tensor_first, tensor_flow).flip(2) * 255.0
+    tensor_warp = warp_tensor(tensor_first.flip(2), tensor_flow)
+    image_forward_flow = Image.fromarray(fz.convert_from_flow(tensor_flow.numpy().transpose(1, 2, 0)))
+    image_forward_warp = to_pil_image(tensor_warp)
 
-    image_flow = fz.convert_from_flow(tensor_flow.numpy().transpose(1, 2, 0))
-    image_warp = to_pil_image(tensor_warp)
+    tensor_flow = estimate_flow(model, tensor_third, tensor_second).detach().flip(2)
+    tensor_warp = warp_tensor(tensor_third.flip(2), tensor_flow)
+    image_backward_flow = Image.fromarray(fz.convert_from_flow(tensor_flow.numpy().transpose(1, 2, 0)))
+    image_backward_warp = to_pil_image(tensor_warp)
 
-    io.imshow_collection([image_first, image_second, image_flow, image_warp])
+    io.imshow_collection([image_first, image_second, image_third])
     io.show()
+    io.imshow_collection([image_forward_flow, image_forward_warp])
+    io.show()
+    io.imshow_collection([image_backward_flow, image_backward_warp])
+    io.show()
+
+    image_first.save('image_first.jpg')
+    image_second.save('image_second.jpg')
+    image_third.save('image_third.jpg')
+    image_forward_flow.save('image_forward_flow.jpg')
+    image_backward_flow.save('image_backward_flow.jpg')
+    image_forward_warp.save('image_forward_warp.jpg')
+    image_backward_warp.save('image_backward_warp.jpg')

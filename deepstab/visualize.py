@@ -32,9 +32,13 @@ def show_labels(image, labels):
     io.show()
 
 
-def animate_sequence(upper_frames, lower_frames):
-    fig, [ax1, ax2] = plt.subplots(2)
-    ims = [[ax1.imshow(u, animated=True), ax2.imshow(l, animated=True)] for u, l in zip(upper_frames, lower_frames)]
-    ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True, repeat_delay=1000)
+def animate_sequence(*args):
+    fig, axes = plt.subplots(1, len(args))
+    for ax in axes:
+        ax.axis('off')
+    images = []
+    for elements in zip(*args):
+        images.append([ax.imshow(e, animated=True) for ax, e in zip(axes, elements)])
+    ani = animation.ArtistAnimation(fig, images, interval=50, blit=True, repeat_delay=1000)
     plt.close()
     return ani

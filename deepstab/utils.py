@@ -8,6 +8,14 @@ from PIL import Image
 from tqdm import tqdm
 
 
+# generates superresolution mask
+# mask = np.zeros((32, 32))
+# for x in range(32):
+#     for y in range(32):
+#         if (x + y) % 2 == 0:
+#             mask[x, y] = 255
+
+
 def cutout_mask(frame, mask, dilate_mask=True):
     frame = np.array(frame)
     mask = np.array(mask)
@@ -249,8 +257,14 @@ def cycle(iterable):
 
 
 if __name__ == '__main__':
-    img = Image.open('../data/raw/DAVIS/JPEGImages/480p/breakdance/00000.jpg')
-    mask = extract_mask(Image.open('../data/raw/DAVIS/Annotations_unsupervised/480p/breakdance/00000.png'), 1)
-    res = cutout_mask(img, mask)
-    mask.show()
-    res.show()
+    img = Image.open('../data/raw/video/DAVIS/JPEGImages/480p/breakdance/00000.jpg')
+    from torchvision.transforms import transforms
+
+    mask = transforms.Resize((32, 32))(
+        extract_mask(Image.open('../data/raw/video/DAVIS/Annotations_unsupervised/480p/camel/00000.png')))
+    # res = cutout_mask(img, mask)
+    # img.save('image.jpeg')
+    import PIL.ImageOps
+
+    PIL.ImageOps.invert(mask).save('mask.jpeg')
+    # res.save('masked_image.jpeg')

@@ -7,25 +7,68 @@ from torchvision.transforms import transforms
 from deepstab.utils import extract_mask, cutout_mask
 
 
-class Generator(nn.Module):
+class GatingConvolutionUNet(nn.Module):
     def __init__(self):
-        super(Generator, self).__init__()
+        super(GatingConvolutionUNet, self).__init__()
+
+        self.e_conv1 = GatingConvolutionDown(4, 64, 7, bn=False)
+        self.e_conv2 = GatingConvolutionDown(64, 128, 5)
+        self.e_conv3 = GatingConvolutionDown(128, 256, 5)
+        self.e_conv4 = GatingConvolutionDown(256, 512, 3)
+        self.e_conv5 = GatingConvolutionDown(512, 512, 3)
+        self.e_conv6 = GatingConvolutionDown(512, 512, 3)
+        self.e_conv7 = GatingConvolutionDown(512, 512, 3)
+
+        self.d_conv7 = GatingConvolutionUp(1024, 512, 3)
+        self.d_conv6 = GatingConvolutionUp(1024, 512, 3)
+        self.d_conv5 = GatingConvolutionUp(1024, 512, 3)
+        self.d_conv4 = GatingConvolutionUp(768, 256, 3)
+        self.d_conv3 = GatingConvolutionUp(384, 128, 3)
+        self.d_conv2 = GatingConvolutionUp(192, 64, 3)
+        self.d_conv1 = GatingConvolutionUp(67, 3, 3, bn=False)
+        self.out = nn.Conv2d(3, 3, 1)
+
+    def forward(self, image_in, mask_in):
+        x = torch.cat([image_in, mask_in], 1)
+        e_image_out1 = self.e_conv1(x)
+        e_image_out2 = self.e_conv2(e_image_out1)
+        e_image_out3 = self.e_conv3(e_image_out2)
+        e_image_out4 = self.e_conv4(e_image_out3)
+        e_image_out5 = self.e_conv5(e_image_out4)
+        e_image_out6 = self.e_conv6(e_image_out5)
+        e_image_out7 = self.e_conv7(e_image_out6)
+
+        d_image_out7 = self.d_conv7(e_image_out7, e_image_out6)
+        d_image_out6 = self.d_conv6(d_image_out7, e_image_out5)
+        d_image_out5 = self.d_conv5(d_image_out6, e_image_out4)
+        d_image_out4 = self.d_conv4(d_image_out5, e_image_out3)
+        d_image_out3 = self.d_conv3(d_image_out4, e_image_out2)
+        d_image_out2 = self.d_conv2(d_image_out3, e_image_out1)
+        d_image_out1 = self.d_conv1(d_image_out2, image_in)
+        image_out = torch.sigmoid(self.out(d_image_out1))
+
+        return image_out
+
+
+class GatingConvolutionAutoencoder(nn.Module):
+    def __init__(self):
+        super(GatingConvolutionAutoencoder, self).__init__()
 
         self.model = nn.Sequential(
-            Down(4, 64, 7, bn=False),
-            Down(64, 128, 5),
-            Down(128, 256, 5),
-            Down(256, 512, 3),
-            Down(512, 512, 3),
-            Down(512, 512, 3),
-            Down(512, 512, 3),
-            Up(512, 512, 3),
-            Up(512, 512, 3),
-            Up(512, 512, 3),
-            Up(512, 256, 3),
-            Up(256, 128, 3),
-            Up(128, 64, 3),
-            Up(64, 3, 3, bn=False)
+            GatingConvolutionDown(4, 64, 7, bn=False),
+            GatingConvolutionDown(64, 128, 5),
+            GatingConvolutionDown(128, 256, 5),
+            GatingConvolutionDown(256, 512, 3),
+            GatingConvolutionDown(512, 512, 3),
+            GatingConvolutionDown(512, 512, 3),
+            GatingConvolutionDown(512, 512, 3),
+            GatingConvolutionUp(512, 512, 3),
+            GatingConvolutionUp(512, 512, 3),
+            GatingConvolutionUp(512, 512, 3),
+            GatingConvolutionUp(512, 256, 3),
+            GatingConvolutionUp(256, 128, 3),
+            GatingConvolutionUp(128, 64, 3),
+            GatingConvolutionUp(64, 3, 3, bn=False)
         )
 
     def forward(self, image_in, mask_in):
@@ -33,9 +76,9 @@ class Generator(nn.Module):
         return self.model(x)
 
 
-class Down(nn.Module):
+class GatingConvolutionDown(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, bn=True):
-        super(Down, self).__init__()
+        super(GatingConvolutionDown, self).__init__()
         self.gating_conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=2, padding=int(kernel_size / 2),
                                      padding_mode='same')
         self.feature_conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=2, padding=int(kernel_size / 2),
@@ -48,9 +91,9 @@ class Down(nn.Module):
             self.gating_bn = None
             self.feature_bn = None
 
-    def forward(self, x):
-        gating_x = self.gating_conv(x)
-        feature_x = self.feature_conv(x)
+    def forward(self, image_in):
+        gating_x = self.gating_conv(image_in)
+        feature_x = self.feature_conv(image_in)
         if self.bn:
             gating_x = self.gating_bn(gating_x)
             feature_x = self.feature_bn(feature_x)
@@ -59,9 +102,9 @@ class Down(nn.Module):
         return gating_x * feature_x
 
 
-class Up(nn.Module):
+class GatingConvolutionUp(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, bn=True):
-        super(Up, self).__init__()
+        super(GatingConvolutionUp, self).__init__()
         self.gating_conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=int(kernel_size / 2),
                                      padding_mode='same')
         self.feature_conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=int(kernel_size / 2),
@@ -74,10 +117,14 @@ class Up(nn.Module):
             self.gating_bn = None
             self.feature_bn = None
 
-    def forward(self, x):
-        x = F.interpolate(x, scale_factor=2)
-        gating_x = self.gating_conv(x)
-        feature_x = self.feature_conv(x)
+    def forward(self, image_in1, image_in2=None):
+        image_up = F.interpolate(image_in1, scale_factor=2)
+        if image_in2 is None:
+            image_in = image_up
+        else:
+            image_in = torch.cat([image_up, image_in2], dim=1)
+        gating_x = self.gating_conv(image_in)
+        feature_x = self.feature_conv(image_in)
         if self.bn:
             gating_x = self.gating_bn(gating_x)
             feature_x = self.feature_bn(feature_x)
@@ -86,44 +133,12 @@ class Up(nn.Module):
         return gating_x * feature_x
 
 
-class Discriminator(nn.Module):
-    def __init__(self):
-        super(Discriminator, self).__init__()
-
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=5, stride=2, padding=2, padding_mode='same'),
-            nn.BatchNorm2d(64),
-            nn.ELU(),
-            nn.Conv2d(64, 128, kernel_size=5, stride=2, padding=2, padding_mode='same'),
-            nn.BatchNorm2d(128),
-            nn.ELU(),
-            nn.Conv2d(128, 256, kernel_size=5, stride=2, padding=2, padding_mode='same'),
-            nn.BatchNorm2d(256),
-            nn.ELU(),
-            nn.Conv2d(256, 512, kernel_size=5, stride=2, padding=2, padding_mode='same'),
-            nn.BatchNorm2d(512),
-            nn.ELU(),
-            nn.Conv2d(512, 512, kernel_size=5, stride=2, padding=2, padding_mode='same'),
-            nn.BatchNorm2d(512),
-            nn.ELU()
-        )
-        self.classifier = nn.Sequential(
-            nn.Linear(512 * 8 * 8, 1),
-            nn.Sigmoid()
-        )
-
-    def forward(self, x):
-        x = self.features(x)
-        x = torch.flatten(x, 1)
-        return self.classifier(x)
-
-
 if __name__ == '__main__':
     image = Image.open('../data/raw/video/DAVIS/JPEGImages/480p/breakdance/00000.jpg')
     mask = extract_mask(Image.open('../data/raw/video/DAVIS/Annotations_unsupervised/480p/breakdance/00000.png'), 1)
     masked_image = cutout_mask(image, mask)
 
-    generator = Generator().cuda()
+    generator = GatingConvolutionAutoencoder().cuda()
     discriminator = Discriminator().cuda()
     criterion = torch.nn.BCELoss().cuda()
 

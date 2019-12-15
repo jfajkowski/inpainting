@@ -45,6 +45,7 @@ def Backward(tensorInput, tensorFlow):
 class PWCNet(torch.nn.Module):
     def __init__(self, weights):
         super(PWCNet, self).__init__()
+        self.weights = weights
 
         class Extractor(torch.nn.Module):
             def __init__(self):
