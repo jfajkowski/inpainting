@@ -17,18 +17,18 @@ class VideoInpaintingAlgorithm(ABC):
         pass
 
 
-class BasicInpaintingAlgorithm(VideoInpaintingAlgorithm):
+class ImageInpaintingAlgorithm(VideoInpaintingAlgorithm):
     def __init__(self, inpainting_model: torch.nn.Module):
         self.inpainting_model = inpainting_model
 
     def inpaint(self, frames: List[torch.Tensor], masks: List[torch.Tensor]) -> List[torch.Tensor]:
         result = []
-        for source_frame, mask in zip(frames, masks):
-            result.append(self.inpaint_online(source_frame, mask))
+        for frame, mask in zip(frames, masks):
+            result.append(self.inpaint_online(frame, mask))
         return result
 
     def inpaint_online(self, current_frame: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
-        result = self.inpainting_model(current_frame, current_mask)
+        result = self.inpainting_model(mask_tensor(current_frame, current_mask), current_mask)
         return result
 
 
@@ -52,8 +52,8 @@ class FlowInpaintingAlgorithm(VideoInpaintingAlgorithm):
 
     def inpaint(self, frames: List[torch.Tensor], masks: List[torch.Tensor]) -> List[torch.Tensor]:
         result = []
-        for source_frame, mask in zip(frames, masks):
-            result.append(self.inpaint_online(source_frame, mask))
+        for frame, mask in zip(frames, masks):
+            result.append(self.inpaint_online(frame, mask))
         return result
 
     def inpaint_online(self, current_frame: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:

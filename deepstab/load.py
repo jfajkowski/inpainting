@@ -55,14 +55,15 @@ class ImageDataset(Dataset):
         return len(self.considered_images)
 
 
-class RectangleMaskDataset(Dataset):
+class RectangleMaskDataset(IterableDataset):
     def __init__(self, height, width, rectangle=None, transform=None):
         if not rectangle:
             rectangle = (int(width * 1 / 4), int(height * 1 / 4), int(width * 1 / 2), int(height * 1 / 2))
         self.mask = self._create_mask(height, width, rectangle)
         self.transform = transform
 
-    def _create_mask(self, height, width, rectangle):
+    @staticmethod
+    def _create_mask(height, width, rectangle):
         mask = np.zeros((height, width), dtype=np.uint8)
         x, y, w, h = rectangle
         mask[y:y + h, x:x + w] = 1
@@ -81,7 +82,7 @@ class RectangleMaskDataset(Dataset):
 class FileMaskDataset(IterableDataset):
     def __init__(self, mask_dir, shuffle=True, transform=None):
         self.mask_paths = list(glob.glob(f'{mask_dir}/*'))
-        self.mask_paths_generator = self.random_mask_path_generator()
+        self.mask_paths_generator = self._random_mask_path_generator()
         self.shuffle = shuffle
         self.transform = transform
 
@@ -93,7 +94,7 @@ class FileMaskDataset(IterableDataset):
                 mask = self.transform(mask)
             yield mask
 
-    def random_mask_path_generator(self):
+    def _random_mask_path_generator(self):
         while True:
             if self.shuffle:
                 np.random.shuffle(self.mask_paths)
@@ -121,7 +122,7 @@ class DynamicMaskVideoDataset(Dataset):
             frames[i] = frame
             masks[i] = mask
 
-        return frames, masks, frame_dir
+        return frames, masks, [frame_dir]
 
     def __len__(self) -> int:
         return len(self.frame_dataset)
@@ -152,10 +153,18 @@ class StaticMaskVideoDataset(Dataset):
         return len(self.frame_dataset)
 
 
-class VideoDataset(Dataset):
-    _repr_indent = 4
+def _load_image(image_path, image_type):
+    if image_type == 'image':
+        return cv.imread(image_path)
+    elif image_type == 'mask':
+        return np.expand_dims(cv.imread(image_path, cv.IMREAD_GRAYSCALE), axis=2)
+    else:
+        raise ValueError(image_type)
 
-    def __init__(self, frame_dirs, sequence_length=None, transform=None):
+
+class VideoDataset(Dataset):
+
+    def __init__(self, frame_dirs, frame_type=False, sequence_length=None, transform=None):
 
         if not frame_dirs:
             raise ValueError('Empty frame directory list given to VideoDataset')
@@ -163,7 +172,8 @@ class VideoDataset(Dataset):
         if sequence_length and sequence_length < 1:
             raise ValueError('Sequence length must be at least 1')
 
-        self.dir_list = frame_dirs
+        self.frame_dirs = frame_dirs
+        self.frame_type = frame_type
         self.sequence_length = sequence_length
         self.transform = transform
         self.considered_videos = []
@@ -182,7 +192,7 @@ class VideoDataset(Dataset):
         frame_paths = sorted(glob.glob(f'{frame_dir}/*'))
         frame_paths = frame_paths[:self.sequence_length] if self.sequence_length else frame_paths
         for frame_path in frame_paths:
-            frame = Image.open(frame_path)
+            frame = _load_image(frame_path, self.frame_type)
             if self.transform is not None:
                 frame = self.transform(frame)
             frames.append(frame)
