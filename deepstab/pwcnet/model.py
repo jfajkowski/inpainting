@@ -1,6 +1,6 @@
 import torch
 
-from pwc.correlation import correlation
+from deepstab.pwcnet.correlation import correlation
 
 ##########################################################
 
@@ -42,10 +42,9 @@ def Backward(tensorInput, tensorFlow):
 
 ##########################################################
 
-class PWCNet(torch.nn.Module):
+class Network(torch.nn.Module):
     def __init__(self, weights):
-        super(PWCNet, self).__init__()
-        self.weights = weights
+        super(Network, self).__init__()
 
         class Extractor(torch.nn.Module):
             def __init__(self):
@@ -259,7 +258,7 @@ class PWCNet(torch.nn.Module):
 
         self.moduleRefiner = Refiner()
 
-        self.load_state_dict(torch.load(self.weights))
+        self.load_state_dict(torch.load(weights))
 
     # end
 
@@ -273,5 +272,5 @@ class PWCNet(torch.nn.Module):
         objectEstimate = self.moduleThr(tensorFirst[-4], tensorSecond[-4], objectEstimate)
         objectEstimate = self.moduleTwo(tensorFirst[-5], tensorSecond[-5], objectEstimate)
 
-        return objectEstimate['tensorFlow'] + self.moduleRefiner(objectEstimate['tensorFeat'])
+        return (objectEstimate['tensorFlow'] + self.moduleRefiner(objectEstimate['tensorFeat'])) * 20.0
 # end

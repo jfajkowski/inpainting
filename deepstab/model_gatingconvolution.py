@@ -45,9 +45,8 @@ class GatingConvolutionUNet(nn.Module):
         d_image_out3 = self.d_conv3(d_image_out4, e_image_out2)
         d_image_out2 = self.d_conv2(d_image_out3, e_image_out1)
         d_image_out1 = self.d_conv1(d_image_out2, image_in)
-        image_out = torch.sigmoid(self.out(d_image_out1))
 
-        return image_out
+        return torch.tanh(self.out(d_image_out1))
 
 
 class GatingConvolutionAutoencoder(nn.Module):
@@ -68,12 +67,13 @@ class GatingConvolutionAutoencoder(nn.Module):
             GatingConvolutionUp(512, 256, 3),
             GatingConvolutionUp(256, 128, 3),
             GatingConvolutionUp(128, 64, 3),
-            GatingConvolutionUp(64, 3, 3, bn=False)
+            GatingConvolutionUp(64, 3, 3, bn=False),
+            nn.Conv2d(3, 3, 1)
         )
 
     def forward(self, image_in, mask_in):
         x = torch.cat([image_in, mask_in], 1)
-        return self.model(x)
+        return torch.tanh(self.model(x))
 
 
 class GatingConvolutionDown(nn.Module):

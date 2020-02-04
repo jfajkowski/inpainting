@@ -16,7 +16,7 @@ kernel_Correlation_rearrange = '''
 		const float* input,
 		float* output
 	) {
-	  int intIndex = (blockIdx.image_in * blockDim.image_in) + threadIdx.image_in;
+	  int intIndex = (blockIdx.x * blockDim.x) + threadIdx.x;
 
 	  if (intIndex >= n) {
 	    return;
@@ -49,10 +49,10 @@ kernel_Correlation_updateOutput = '''
 	  float *patch_data = (float *)patch_data_char;
 	  
 	  // First (upper left) position of kernel upper-left corner in current center position of neighborhood in image 1
-	  int x1 = blockIdx.image_in + 4;
+	  int x1 = blockIdx.x + 4;
 	  int y1 = blockIdx.y + 4;
 	  int item = blockIdx.z;
-	  int ch_off = threadIdx.image_in;
+	  int ch_off = threadIdx.x;
 	  
 	  // Load 3D patch into shared shared memory
 	  for (int j = 0; j < 1; j++) { // HEIGHT
@@ -100,7 +100,7 @@ kernel_Correlation_updateOutput = '''
 	        total_sum += sum[idx];
 	      }
 	      const int sumelems = SIZE_3(rbot0);
-	      const int index = ((top_channel*SIZE_2(top) + blockIdx.y)*SIZE_3(top))+blockIdx.image_in;
+	      const int index = ((top_channel*SIZE_2(top) + blockIdx.y)*SIZE_3(top))+blockIdx.x;
 	      top[index + item*SIZE_1(top)*SIZE_2(top)*SIZE_3(top)] = total_sum / (float)sumelems;
 	    }
 	  }
@@ -118,7 +118,7 @@ kernel_Correlation_updateGradFirst = '''
 	  const float* gradOutput,
 	  float* gradFirst,
 	  float* gradSecond
-	) { for (int intIndex = (blockIdx.image_in * blockDim.image_in) + threadIdx.image_in; intIndex < n; intIndex += blockDim.image_in * gridDim.image_in) {
+	) { for (int intIndex = (blockIdx.x * blockDim.x) + threadIdx.x; intIndex < n; intIndex += blockDim.x * gridDim.x) {
 	  int n = intIndex % SIZE_1(gradFirst); // channels
 	  int l = (intIndex / SIZE_1(gradFirst)) % SIZE_3(gradFirst) + 4; // w-pos
 	  int m = (intIndex / SIZE_1(gradFirst) / SIZE_3(gradFirst)) % SIZE_2(gradFirst) + 4; // h-pos
@@ -157,8 +157,8 @@ kernel_Correlation_updateGradFirst = '''
 	        int idxopoffset = (intSample * SIZE_1(gradOutput) + op);
 	        
 	        for (int y = ymin; y <= ymax; y++) {
-	          for (int image_in = xmin; image_in <= xmax; image_in++) {
-	            int idxgradOutput = (idxopoffset * SIZE_2(gradOutput) + y) * SIZE_3(gradOutput) + image_in; // gradOutput[image_in,y,o,p]
+	          for (int x = xmin; x <= xmax; x++) {
+	            int idxgradOutput = (idxopoffset * SIZE_2(gradOutput) + y) * SIZE_3(gradOutput) + x; // gradOutput[x,y,o,p]
 	            sum += gradOutput[idxgradOutput] * bot1tmp;
 	          }
 	        }
@@ -182,7 +182,7 @@ kernel_Correlation_updateGradSecond = '''
 	  const float* gradOutput,
 	  float* gradFirst,
 	  float* gradSecond
-	) { for (int intIndex = (blockIdx.image_in * blockDim.image_in) + threadIdx.image_in; intIndex < n; intIndex += blockDim.image_in * gridDim.image_in) {
+	) { for (int intIndex = (blockIdx.x * blockDim.x) + threadIdx.x; intIndex < n; intIndex += blockDim.x * gridDim.x) {
 	  int n = intIndex % SIZE_1(gradSecond); // channels
 	  int l = (intIndex / SIZE_1(gradSecond)) % SIZE_3(gradSecond) + 4; // w-pos
 	  int m = (intIndex / SIZE_1(gradSecond) / SIZE_3(gradSecond)) % SIZE_2(gradSecond) + 4; // h-pos
@@ -223,8 +223,8 @@ kernel_Correlation_updateGradSecond = '''
 	        int idxopoffset = (intSample * SIZE_1(gradOutput) + op);
 	        
 	        for (int y = ymin; y <= ymax; y++) {
-	          for (int image_in = xmin; image_in <= xmax; image_in++) {
-	            int idxgradOutput = (idxopoffset * SIZE_2(gradOutput) + y) * SIZE_3(gradOutput) + image_in; // gradOutput[image_in,y,o,p]
+	          for (int x = xmin; x <= xmax; x++) {
+	            int idxgradOutput = (idxopoffset * SIZE_2(gradOutput) + y) * SIZE_3(gradOutput) + x; // gradOutput[x,y,o,p]
 	            sum += gradOutput[idxgradOutput] * bot0tmp;
 	          }
 	        }

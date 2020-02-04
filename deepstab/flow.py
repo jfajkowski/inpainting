@@ -7,67 +7,87 @@ import torch.nn.functional as F
 from PIL import Image
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
-from deepstab.pwcnet.model import PWCNet
+from deepstab.pwcnet.model import Network
+from deepstab.region_fill import regionfill
 
 
 def estimate_flow(model, x_1, x_2):
-    assert (x_1.size(1) == x_2.size(1))
     assert (x_1.size(2) == x_2.size(2))
+    assert (x_1.size(3) == x_2.size(3))
 
-    width = x_1.size(2)
-    height = x_1.size(1)
-
-    tensor_preprocessed_first = x_1.cuda().view(1, 3, height, width)
-    tensor_preprocessed_second = x_2.cuda().view(1, 3, height, width)
+    height = x_1.size(2)
+    width = x_1.size(3)
 
     preprocessed_width = int(math.floor(math.ceil(width / 64.0) * 64.0))
     preprocessed_height = int(math.floor(math.ceil(height / 64.0) * 64.0))
 
-    tensor_preprocessed_first = torch.nn.functional.interpolate(input=tensor_preprocessed_first,
+    tensor_preprocessed_first = torch.nn.functional.interpolate(input=x_1,
                                                                 size=(preprocessed_height, preprocessed_width),
                                                                 mode='bilinear', align_corners=False)
-    tensor_preprocessed_second = torch.nn.functional.interpolate(input=tensor_preprocessed_second,
+    tensor_preprocessed_second = torch.nn.functional.interpolate(input=x_2,
                                                                  size=(preprocessed_height, preprocessed_width),
                                                                  mode='bilinear', align_corners=False)
 
-    flow = 20.0 * torch.nn.functional.interpolate(
+    flow = torch.nn.functional.interpolate(
         input=model(tensor_preprocessed_first, tensor_preprocessed_second), size=(height, width),
         mode='bilinear', align_corners=False)
 
     flow[:, 0, :, :] *= float(width) / float(preprocessed_width)
     flow[:, 1, :, :] *= float(height) / float(preprocessed_height)
 
-    return flow[0, :, :, :].cpu()
+    return flow
 
 
-def warp_tensor(x, flow, padding_mode='zeros'):
+def custom_warp(x, flow):
+    return
+
+
+def warp_tensor(x, flow, mode='bilinear', padding_mode='zeros'):
     assert x.size()[-2:] == flow.size()[-2:]
-    _, h, w = x.size()
-    x = x.cuda().view(1, 3, h, w)
-    flow = flow.cuda().view(1, 2, h, w)
+    flow = normalize_flow(flow.clone())
+    grid = make_grid(x)
+    grid += 2 * flow
+    grid = grid.permute(0, 2, 3, 1)
+    return F.grid_sample(x, grid, mode=mode, padding_mode=padding_mode)
+
+
+def normalize_flow(flow):
+    _, _, h, w = flow.size()
     flow[:, 0, :, :] /= float(w)
     flow[:, 1, :, :] /= float(h)
+    return flow
+
+
+def make_grid(x, normalized=True):
+    _, _, h, w = x.size()
     x_ = torch.arange(w).view(1, -1).expand(h, -1)
     y_ = torch.arange(h).view(-1, 1).expand(-1, w)
     grid = torch.stack([x_, y_], dim=0).float().cuda()
     grid = grid.unsqueeze(0).expand(1, -1, -1, -1)
-    grid[:, 0, :, :] = 2 * grid[:, 0, :, :] / (w - 1) - 1
-    grid[:, 1, :, :] = 2 * grid[:, 1, :, :] / (h - 1) - 1
-    grid += 2 * flow
-    grid = grid.permute(0, 2, 3, 1)
-    return F.grid_sample(x, grid, padding_mode=padding_mode)[0, :, :, :].cpu()
+    if normalized:
+        grid[:, 0, :, :] = 2 * grid[:, 0, :, :] / (w - 1) - 1
+        grid[:, 1, :, :] = 2 * grid[:, 1, :, :] / (h - 1) - 1
+    return grid
+
+
+def fill_flow(flow, mask):
+    mask = mask.squeeze(0).squeeze(0).cpu().detach().numpy()
+    masked_flow = flow.squeeze(0).cpu().detach().numpy()
+    masked_flow[0, :, :] = regionfill(masked_flow[0, :, :], 1 - mask)
+    masked_flow[1, :, :] = regionfill(masked_flow[1, :, :], 1 - mask)
+    return torch.as_tensor(masked_flow).unsqueeze(0).cuda()
 
 
 if __name__ == '__main__':
-    image_first = Image.open('../data/raw/video/DAVIS/JPEGImages/480p/crossing/00003.jpg')
-    image_second = Image.open('../data/raw/video/DAVIS/JPEGImages/480p/crossing/00004.jpg')
-    image_third = Image.open('../data/raw/video/DAVIS/JPEGImages/480p/crossing/00005.jpg')
+    image_first = Image.open('../data/raw/video/DAVIS/JPEGImages/Full-Resolution/basketball-game/00000.jpg')
+    image_second = Image.open('../data/raw/video/DAVIS/JPEGImages/Full-Resolution/basketball-game/00001.jpg')
+    image_third = Image.open('../data/raw/video/DAVIS/JPEGImages/Full-Resolution/basketball-game/00002.jpg')
 
     tensor_first = to_tensor(image_first).flip(2)
     tensor_second = to_tensor(image_second).flip(2)
     tensor_third = to_tensor(image_third).flip(2)
 
-    model = PWCNet('../models/pwcnet/network-default.pytorch').cuda().eval()
+    model = Network('../models/pwcnet/network-default.pytorch').cuda().eval()
 
     tensor_flow = estimate_flow(model, tensor_first, tensor_second).detach().flip(2)
     tensor_warp = warp_tensor(tensor_first.flip(2), tensor_flow)

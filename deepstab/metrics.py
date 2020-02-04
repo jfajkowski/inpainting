@@ -23,4 +23,9 @@ class PSNR(nn.Module):
 
 class MAE(nn.Module):
     def __call__(self, a, b):
-        return torch.sum(torch.abs(a.float() - b.float())) / torch.sum(a)
+        return torch.mean(torch.abs(a.float() - b.float()))
+
+
+class MSE(nn.Module):
+    def __call__(self, a, b):
+        return torch.mean(torch.pow(a.float() - b.float(), 2))

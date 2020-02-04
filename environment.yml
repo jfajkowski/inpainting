@@ -1,4 +1,4 @@
-name: deepstab
+name: inpainting
 channels:
   - pytorch
   - conda-forge
@@ -8,17 +8,20 @@ dependencies:
   - pandas
   - scikit-learn
   - scikit-image
-  - keras-gpu
+  - cuda100
   - pytorch
-  - torchvision
-  - opencv
+  - torchvision=0.4.2
   - matplotlib
   - jupyter
   - pip
-  - cupy
   - nvidia-apex
-  - requests
-  - ignite
+  - pyyaml
+  - opencv
+  - tensorboard
+  - pillow=6.2.0
   - pip:
       - -e .
       - flowiz
+      - cupy-cuda101
+      - opencv_transforms
+      - pytorch_lightning

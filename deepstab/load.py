@@ -1,30 +1,29 @@
 import glob
 
+import cv2 as cv
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import IterableDataset
 
-from deepstab.utils import cutout_mask, extract_mask
+from deepstab.utils import extract_mask
 from deepstab.visualize import color_map
 
 
 class InpaintingImageDataset(Dataset):
-    def __init__(self, image_dataset, mask_dataset, mask_mode='L', transform=None):
+    def __init__(self, image_dataset, mask_dataset, transform=None):
         self.image_dataset = image_dataset
         self.mask_generator = iter(mask_dataset)
-        self.mask_mode = mask_mode
         self.transform = transform
 
     def __getitem__(self, index: int):
-        image = self.image_dataset.__getitem__(index)[0]
-        mask = next(self.mask_generator).convert(self.mask_mode)
-        image_masked = cutout_mask(image, mask)
+        image = self.image_dataset.__getitem__(index)
+        mask = next(self.mask_generator)
 
         if self.transform is not None:
-            image, mask, image_masked = tuple(map(self.transform, (image, mask, image_masked)))
+            image, mask = tuple(map(self.transform, (image, mask)))
 
-        return image, mask, image_masked
+        return image, mask
 
     def __len__(self) -> int:
         return len(self.image_dataset)
@@ -43,19 +42,20 @@ class ImageDataset(Dataset):
         self.considered_images = []
 
         for image_dir in image_dirs:
-            self.considered_images += glob.glob(f'{image_dir}/*')
+            self.considered_images += glob.glob(f'{image_dir}/**/*.jpg', recursive=True)
 
     def __getitem__(self, index: int):
-        image = Image.open(self.considered_images[index])
+        image = cv.imread(self.considered_images[index])
+        # image = Image.open(self.considered_images[index]).convert('RGB')
         if self.transform is not None:
             image = self.transform(image)
-        return image,
+        return image
 
     def __len__(self) -> int:
         return len(self.considered_images)
 
 
-class RectangleMaskDataset(IterableDataset):
+class RectangleMaskDataset(Dataset):
     def __init__(self, height, width, rectangle=None, transform=None):
         if not rectangle:
             rectangle = (int(width * 1 / 4), int(height * 1 / 4), int(width * 1 / 2), int(height * 1 / 2))
@@ -68,96 +68,85 @@ class RectangleMaskDataset(IterableDataset):
         mask[y:y + h, x:x + w] = 1
         mask_img = Image.fromarray(mask)
         mask_img.putpalette(color_map().flatten().tolist())
-        return mask_img
+        return extract_mask(mask_img)
 
     def __iter__(self):
         while True:
             mask = self.mask
             if self.transform is not None:
-                mask = self.transform(mask)
+                mask = self.transform(mask.copy())
             yield mask
 
 
-class IrregularMaskDataset(IterableDataset):
-    def __init__(self, mask_dir, transform=None):
+class FileMaskDataset(IterableDataset):
+    def __init__(self, mask_dir, shuffle=True, transform=None):
         self.mask_paths = list(glob.glob(f'{mask_dir}/*'))
+        self.mask_paths_generator = self.random_mask_path_generator()
+        self.shuffle = shuffle
         self.transform = transform
 
     def __iter__(self):
         while True:
-            mask = Image.open(np.random.choice(self.mask_paths))
+            mask = np.expand_dims(cv.imread(next(self.mask_paths_generator), cv.IMREAD_GRAYSCALE), axis=2)
+            # mask = Image.open(next(self.mask_paths_generator)).convert('L')
             if self.transform is not None:
                 mask = self.transform(mask)
             yield mask
 
+    def random_mask_path_generator(self):
+        while True:
+            if self.shuffle:
+                np.random.shuffle(self.mask_paths)
+            for mask_path in self.mask_paths:
+                yield mask_path
 
-class ObjectMaskVideoDataset(Dataset):
-    def __init__(self, frame_dirs, mask_dirs, sequence_length=None, mask_mode='L', frame_transform=None,
-                 mask_transform=None, transform=None):
-        self.frame_dataset = VideoDataset(frame_dirs, sequence_length, frame_transform)
-        self.mask_dataset = VideoDataset(mask_dirs, sequence_length, mask_transform)
-        self.mask_mode = mask_mode
+
+class DynamicMaskVideoDataset(Dataset):
+    def __init__(self, frame_dataset, mask_dataset, transform=None):
+        self.frame_dataset = frame_dataset
+        self.mask_dataset = mask_dataset
         self.transform = transform
         if len(self.frame_dataset) != len(self.mask_dataset):
             raise ValueError('Lengths of frames dataset and masks dataset don\'t match')
-        self.length = len(self.frame_dataset)
 
     def __getitem__(self, index: int):
-        frames = []
-        masks = []
-        frames_masked = []
-        for frame, mask in zip(self.frame_dataset.__getitem__(index), self.mask_dataset.__getitem__(index)):
-            mask = extract_mask(mask).convert(self.mask_mode)
-            frame_masked = cutout_mask(frame, mask)
-
+        frames, frame_dir = self.frame_dataset.__getitem__(index)
+        masks, _ = self.mask_dataset.__getitem__(index)
+        for i in range(len(frames)):
+            frame = frames[i]
+            mask = masks[i]
             if self.transform is not None:
-                frame, mask, frame_masked = tuple(map(self.transform, (frame, mask, frame_masked)))
+                frame, mask = tuple(map(self.transform, (frame, mask)))
 
-            frames.append(frame)
-            masks.append(mask)
-            frames_masked.append(frame_masked)
+            frames[i] = frame
+            masks[i] = mask
 
-        return frames, masks, frames_masked
+        return frames, masks, frame_dir
 
     def __len__(self) -> int:
-        return self.length
+        return len(self.frame_dataset)
 
 
-class SquareMaskVideoDataset(Dataset):
-
-    def __init__(self, frame_dirs, sequence_length=None, mask_mode='L', frame_transform=None, mask_transform=None,
-                 transform=None):
-        self.frame_dataset = VideoDataset(frame_dirs, sequence_length, frame_transform)
-        self.mask_transform = mask_transform
+class StaticMaskVideoDataset(Dataset):
+    def __init__(self, frame_dataset, mask_dataset, transform=None):
+        self.frame_dataset = frame_dataset
+        self.mask_dataset = mask_dataset
+        self.mask_generator = iter(mask_dataset)
         self.transform = transform
-        self.mask_mode = mask_mode
 
     def __getitem__(self, index: int):
-        frames = []
-        masks = []
-        frames_masked = []
-        for frame in self.frame_dataset.__getitem__(index):
-            mask = extract_mask(self.create_mask((frame.size[1], frame.size[0]))).convert(self.mask_mode)
-            if self.mask_transform is not None:
-                mask = self.mask_transform(mask)
-
-            frame_masked = cutout_mask(frame, mask)
-
+        frames, frame_dir = self.frame_dataset.__getitem__(index)
+        masks = [next(self.mask_generator)] * len(frames)
+        for i in range(len(frames)):
+            frame = frames[i]
+            mask = masks[i]
             if self.transform is not None:
-                frame, mask, frame_masked = tuple(map(self.transform, (frame, mask, frame_masked)))
+                frame, mask = tuple(map(self.transform, (frame, mask)))
 
-            frames.append(frame)
-            masks.append(mask)
-            frames_masked.append(frame_masked)
+            frames[i] = frame
+            masks[i] = mask
 
-        return frames, masks, frames_masked
-
-    def create_mask(self, size):
-        mask = np.zeros(size, dtype=np.uint8)
-        mask[int(size[0] * 1 / 4):int(size[0] * 3 / 4), int(size[1] * 1 / 4):int(size[1] * 3 / 4)] = 1
-        mask_img = Image.fromarray(mask)
-        mask_img.putpalette(color_map().flatten().tolist())
-        return mask_img
+        return frames, masks, frame_dir
 
     def __len__(self) -> int:
         return len(self.frame_dataset)
@@ -189,14 +178,15 @@ class VideoDataset(Dataset):
 
     def __getitem__(self, index: int):
         frames = []
-        frame_paths = glob.glob(f'{self.considered_videos[index]}/*')
+        frame_dir = self.considered_videos[index]
+        frame_paths = sorted(glob.glob(f'{frame_dir}/*'))
         frame_paths = frame_paths[:self.sequence_length] if self.sequence_length else frame_paths
         for frame_path in frame_paths:
             frame = Image.open(frame_path)
             if self.transform is not None:
                 frame = self.transform(frame)
             frames.append(frame)
-        return frames
+        return frames, frame_dir
 
     def __len__(self) -> int:
         return len(self.considered_videos)

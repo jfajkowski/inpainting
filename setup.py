@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='deepstab',
+    name='inpainting',
     version='1.0.0',
     url='',
     author='',

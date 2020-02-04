@@ -2,9 +2,10 @@ import os
 import sys
 import time
 
-import cv2 as cv
 import numpy as np
-from PIL import Image
+import torch
+from PIL import Image, ImageDraw, ImageFilter
+from torch.nn.functional import conv2d
 from tqdm import tqdm
 
 
@@ -16,21 +17,47 @@ from tqdm import tqdm
 #             mask[x, y] = 255
 
 
+def dilate_torch(tensor, size):
+    structuring_element = torch.ones((size, size)).view(1, 1, size, size).cuda()
+    return (conv2d(tensor, structuring_element, stride=1, padding=(size // 2, size // 2)) > 0).float()
+
+
 def cutout_mask(frame, mask, dilate_mask=True):
+    if dilate_mask:
+        mask = mask.filter(ImageFilter.MaxFilter(3))
     frame = np.array(frame)
     mask = np.array(mask)
     mask = 255 - mask
-    if dilate_mask:
-        mask = cv.dilate(mask, np.ones((5, 5)))
     frame[mask == 255] = 255
     return Image.fromarray(frame)
 
 
-def extract_mask(image, i=1):
+def bbox(mask):
+    ImageDraw.Draw(mask).rectangle(mask.getbbox(), fill='white')
+    return mask
+
+
+def dilate(mask, size=3):
+    return mask.filter(ImageFilter.MaxFilter(size))
+
+
+def mask_tensor(x, m):
+    return x * m + (1 - m)
+
+
+def normalize(x):
+    return x * 2 - 1
+
+
+def denormalize(x):
+    return (x + 1) / 2
+
+
+def extract_mask(image, i=1, mode='L'):
     image = np.array(image)
     mask = np.ones(image.shape, dtype=np.uint8) * 255
     mask[image == i] = 0
-    return Image.fromarray(mask)
+    return Image.fromarray(mask).convert(mode)
 
 
 def save_frames(save_dir, frames):
@@ -40,6 +67,22 @@ def save_frames(save_dir, frames):
             frame.save(save_path)
         else:
             ValueError('Unhandled frame class')
+
+
+def tensor_to_cv_image(image_tensor: torch.Tensor):
+    return image_tensor.permute(1, 2, 0).numpy().astype(np.uint8)
+
+
+def cv_image_to_tensor(mat: np.ndarray):
+    return torch.from_numpy(mat).permute(2, 0, 1).float()
+
+
+def pil_to_cv(pil_image):
+    return np.array(pil_image)[:, :, ::-1]
+
+
+def cv_to_pil(mat):
+    return Image.fromarray(mat[:, :, ::-1])
 
 
 class Progbar(object):
