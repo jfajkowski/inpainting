@@ -2,12 +2,8 @@ import glob
 
 import cv2 as cv
 import numpy as np
-from PIL import Image
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import IterableDataset
-
-from deepstab.utils import extract_mask
-from deepstab.visualize import color_map
 
 
 class InpaintingImageDataset(Dataset):
@@ -30,7 +26,6 @@ class InpaintingImageDataset(Dataset):
 
 
 class ImageDataset(Dataset):
-    _repr_indent = 4
 
     def __init__(self, image_dirs, transform=None):
 
@@ -56,6 +51,7 @@ class ImageDataset(Dataset):
 
 
 class RectangleMaskDataset(IterableDataset):
+
     def __init__(self, height, width, rectangle=None, transform=None):
         if not rectangle:
             rectangle = (int(width * 1 / 4), int(height * 1 / 4), int(width * 1 / 2), int(height * 1 / 2))
@@ -64,12 +60,10 @@ class RectangleMaskDataset(IterableDataset):
 
     @staticmethod
     def _create_mask(height, width, rectangle):
-        mask = np.zeros((height, width), dtype=np.uint8)
+        mask = np.ones((height, width, 1), dtype=np.uint8) * 255
         x, y, w, h = rectangle
-        mask[y:y + h, x:x + w] = 1
-        mask_img = Image.fromarray(mask)
-        mask_img.putpalette(color_map().flatten().tolist())
-        return extract_mask(mask_img)
+        mask[y:y + h, x:x + w] = 0
+        return mask
 
     def __iter__(self):
         while True:
@@ -80,6 +74,7 @@ class RectangleMaskDataset(IterableDataset):
 
 
 class FileMaskDataset(IterableDataset):
+
     def __init__(self, mask_dir, shuffle=True, transform=None):
         self.mask_paths = list(glob.glob(f'{mask_dir}/*'))
         self.mask_paths_generator = self._random_mask_path_generator()
@@ -103,6 +98,7 @@ class FileMaskDataset(IterableDataset):
 
 
 class DynamicMaskVideoDataset(Dataset):
+
     def __init__(self, frame_dataset, mask_dataset, transform=None):
         self.frame_dataset = frame_dataset
         self.mask_dataset = mask_dataset
@@ -122,13 +118,14 @@ class DynamicMaskVideoDataset(Dataset):
             frames[i] = frame
             masks[i] = mask
 
-        return frames, masks, [frame_dir]
+        return frames, masks, frame_dir
 
     def __len__(self) -> int:
         return len(self.frame_dataset)
 
 
 class StaticMaskVideoDataset(Dataset):
+
     def __init__(self, frame_dataset, mask_dataset, transform=None):
         self.frame_dataset = frame_dataset
         self.mask_dataset = mask_dataset
@@ -164,7 +161,7 @@ def _load_image(image_path, image_type):
 
 class VideoDataset(Dataset):
 
-    def __init__(self, frame_dirs, frame_type=False, sequence_length=None, transform=None):
+    def __init__(self, frame_dirs, frame_type, sequence_length=None, transform=None):
 
         if not frame_dirs:
             raise ValueError('Empty frame directory list given to VideoDataset')

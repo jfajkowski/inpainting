@@ -22,26 +22,10 @@ class Layer(nn.Module):
         return x
 
 
-class DiscriminatorDCGAN(nn.Module):
-    def __init__(self):
-        super(DiscriminatorDCGAN, self).__init__()
-
-        self.model = nn.Sequential(
-            Layer(3, 64, bn=False),
-            Layer(64, 128),
-            Layer(128, 256),
-            Layer(256, 256),
-            Layer(256, 256, bn=False)
-        )
-
-    def forward(self, x):
-        return torch.sigmoid(torch.flatten(self.model(x), 1))
-
-
-class DiscriminatorWGAN(nn.Module):
+class Discriminator(nn.Module):
 
     def __init__(self):
-        super(DiscriminatorWGAN, self).__init__()
+        super(Discriminator, self).__init__()
 
         self.model = nn.Sequential(
             Layer(3, 64, bn=False),

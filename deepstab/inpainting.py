@@ -4,10 +4,14 @@ from typing import List
 import torch
 
 from deepstab.flow import estimate_flow, fill_flow, warp_tensor
-from deepstab.utils import mask_tensor
+from deepstab.utils import mask_tensor, normalize, debug
 
 
 class VideoInpaintingAlgorithm(ABC):
+    @abstractmethod
+    def reset(self):
+        pass
+
     @abstractmethod
     def inpaint(self, frames: List[torch.Tensor], masks: List[torch.Tensor]) -> List[torch.Tensor]:
         pass
@@ -21,6 +25,9 @@ class ImageInpaintingAlgorithm(VideoInpaintingAlgorithm):
     def __init__(self, inpainting_model: torch.nn.Module):
         self.inpainting_model = inpainting_model
 
+    def reset(self):
+        pass
+
     def inpaint(self, frames: List[torch.Tensor], masks: List[torch.Tensor]) -> List[torch.Tensor]:
         result = []
         for frame, mask in zip(frames, masks):
@@ -28,8 +35,17 @@ class ImageInpaintingAlgorithm(VideoInpaintingAlgorithm):
         return result
 
     def inpaint_online(self, current_frame: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
-        result = self.inpainting_model(mask_tensor(current_frame, current_mask), current_mask)
-        return result
+        current_frame = normalize(current_frame)
+        current_frame_masked = mask_tensor(current_frame, current_mask)
+        current_frame_filled = self.inpainting_model(current_frame_masked, current_mask)
+        current_frame_result = current_mask * current_frame + (1 - current_mask) * current_frame_filled
+
+        debug(current_frame, 'current_frame')
+        debug(current_mask, 'current_mask')
+        debug(current_frame_masked, 'current_frame_masked')
+        debug(current_frame_filled, 'current_frame_filled')
+        debug(current_frame_result, 'current_frame_result')
+        return current_frame_result
 
 
 class FlowInpaintingAlgorithm(VideoInpaintingAlgorithm):
@@ -82,7 +98,7 @@ class FlowInpaintingAlgorithm(VideoInpaintingAlgorithm):
                     1 - output_mask)
 
         else:
-            output_frame = current_frame
+            output_frame = mask_tensor(current_frame, current_mask)
             output_mask = current_mask
 
         self.previous_available = True
@@ -91,5 +107,8 @@ class FlowInpaintingAlgorithm(VideoInpaintingAlgorithm):
         self.previous_output_frame = output_frame
         self.previous_output_mask = output_mask
 
-        return self.inpainting_model(output_frame, output_mask)
+        output_frame = normalize(output_frame.clone())
+        frame_masked = mask_tensor(output_frame, output_mask)
+        frame_filled = self.inpainting_model(frame_masked, output_mask)
+        return frame_filled
         # return output_frame

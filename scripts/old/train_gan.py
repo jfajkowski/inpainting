@@ -43,12 +43,12 @@ mask_transforms = transforms.Compose([
 ])
 
 image_dataset = ImageDataset(['../data/raw/image/Places2/data_large'], transform=image_transforms)
-mask_dataset = FileMaskDataset('../data/raw/mask/qd_imd/train', transform=mask_transforms)
+mask_dataset = FileMaskDataset('../../data/raw/mask/qd_imd/train', transform=mask_transforms)
 train_dataset = InpaintingImageDataset(image_dataset, mask_dataset)
 train_data_loader = DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True, drop_last=True)
 
 image_dataset = ImageDataset(['../data/raw/image/Places2/val_large'], transform=image_transforms)
-mask_dataset = FileMaskDataset('../data/raw/mask/qd_imd/train', transform=mask_transforms)
+mask_dataset = FileMaskDataset('../../data/raw/mask/qd_imd/train', transform=mask_transforms)
 val_dataset = InpaintingImageDataset(image_dataset, mask_dataset)
 val_data_loader = DataLoader(val_dataset, batch_size=opt.batch_size, shuffle=True, drop_last=True)
 
@@ -152,7 +152,6 @@ for epoch in range(start_epoch, opt.epochs + 1):
             for metric_name, metric_function in metrics.items():
                 logs.append(('val_' + metric_name, metric_function(image, image_filled).item()))
         progbar.update(opt.train_steps, values=logs)
-
 
         # Tensorboard update and checkpoint
         def update_example(example, name):

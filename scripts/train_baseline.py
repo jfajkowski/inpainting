@@ -1,5 +1,7 @@
+from argparse import Namespace
 from collections import OrderedDict
 
+import numpy as np
 import opencv_transforms.transforms as transforms
 import pytorch_lightning as pl
 import torch
@@ -9,19 +11,17 @@ from deepstab.configuration import MyLogger
 from deepstab.load import ImageDataset, FileMaskDataset, InpaintingImageDataset
 from deepstab.loss import ReconstructionLoss
 from deepstab.metrics import PSNR, MAE, MSE
-from deepstab.model_discriminator import Discriminator
-from deepstab.model_gatingconvolution import GatingConvolutionUNet
+from deepstab.model_autoencoder import GatingConvolutionAutoencoder
 from deepstab.utils import mask_tensor, denormalize, list_of_dicts_to_dict_of_lists, mean_and_std
 
 
-class GAN(pl.LightningModule):
+class Baseline(pl.LightningModule):
 
     def __init__(self, hparams):
-        super(GAN, self).__init__()
+        super(Baseline, self).__init__()
         self.hparams = hparams
 
-        self.generator = GatingConvolutionUNet()
-        self.discriminator = Discriminator()
+        self.generator = GatingConvolutionAutoencoder()
 
         self.reconstruction_criterion = ReconstructionLoss(
             self.hparams.pixel_loss_weight,
@@ -29,7 +29,6 @@ class GAN(pl.LightningModule):
             self.hparams.style_loss_weight,
             self.hparams.tv_loss_weight
         )
-        self.adversarial_criterion = torch.nn.BCEWithLogitsLoss()
 
         self.accuracy_criteria = {
             'psnr': PSNR(1),
@@ -45,72 +44,39 @@ class GAN(pl.LightningModule):
         image_filled = self.generator(image_masked, mask)
         return image_filled, image_masked
 
-    def training_step(self, batch, batch_nb, optimizer_idx):
+    def training_step(self, batch, batch_nb):
         image, mask = batch
-        real = torch.ones((self.hparams.batch_size, 16384))
-        fake = torch.zeros((self.hparams.batch_size, 16384))
-        if self.on_gpu:
-            real = real.cuda(image.device.index)
-            fake = fake.cuda(image.device.index)
-
-        if optimizer_idx == 0:
-            self.image_filled, _ = self.forward(image, mask)
-
-            g_reconstruction_loss, g_pixel_loss, g_content_loss, g_style_loss, g_tv_loss = self.reconstruction_criterion(
-                self.image_filled, image)
-            g_adversarial_loss = self.adversarial_criterion(self.discriminator(self.image_filled), real)
-            g_loss = (g_reconstruction_loss + g_adversarial_loss) / 2
-
-            log = OrderedDict({
-                'loss/g_loss/reconstruction': g_reconstruction_loss,
-                'loss/g_loss/reconstruction/pixel': g_pixel_loss,
-                'loss/g_loss/reconstruction/content': g_content_loss,
-                'loss/g_loss/reconstruction/style': g_style_loss,
-                'loss/g_loss/reconstruction/tv': g_tv_loss,
-                'loss/g_loss/adversarial': g_adversarial_loss,
-                'loss/g_loss': g_loss,
-                **self._prepare_accuracy_log(image, self.image_filled, self.accuracy_criteria)
-            })
-            output = OrderedDict({
-                'loss': g_loss,
-                'progress_bar': log,
-                'log': self._wrap_log(log, 'train')
-            })
-            return output
-
-        if optimizer_idx == 1:
-            d_real_loss = self.adversarial_criterion(self.discriminator(image), real)
-            d_fake_loss = self.adversarial_criterion(self.discriminator(self.image_filled.detach()), fake)
-            d_loss = (d_real_loss + d_fake_loss) / 2
-
-            log = {
-                'loss/d_loss': d_loss
-            }
-            output = OrderedDict({
-                'loss': d_loss,
-                'progress_bar': log,
-                'log': self._wrap_log(log, 'train')
-            })
-            return output
-
-    def validation_step(self, batch, batch_nb):
-        image, mask = batch
-        real = torch.ones((self.hparams.batch_size, 16384))
-        fake = torch.zeros((self.hparams.batch_size, 16384))
-        if self.on_gpu:
-            real = real.cuda(image.device.index)
-            fake = fake.cuda(image.device.index)
 
         self.image_filled, _ = self.forward(image, mask)
 
         g_reconstruction_loss, g_pixel_loss, g_content_loss, g_style_loss, g_tv_loss = self.reconstruction_criterion(
             self.image_filled, image)
-        g_adversarial_loss = self.adversarial_criterion(self.discriminator(self.image_filled), real)
-        g_loss = (g_reconstruction_loss + g_adversarial_loss) / 2
+        g_loss = g_reconstruction_loss
 
-        d_real_loss = self.adversarial_criterion(self.discriminator(image), real)
-        d_fake_loss = self.adversarial_criterion(self.discriminator(self.image_filled.detach()), fake)
-        d_loss = (d_real_loss + d_fake_loss) / 2
+        log = OrderedDict({
+            'loss/g_loss/reconstruction': g_reconstruction_loss,
+            'loss/g_loss/reconstruction/pixel': g_pixel_loss,
+            'loss/g_loss/reconstruction/content': g_content_loss,
+            'loss/g_loss/reconstruction/style': g_style_loss,
+            'loss/g_loss/reconstruction/tv': g_tv_loss,
+            'loss/g_loss': g_loss,
+            **self._prepare_accuracy_log(image, self.image_filled, self.accuracy_criteria)
+        })
+        output = OrderedDict({
+            'loss': g_loss,
+            'progress_bar': log,
+            'log': self._wrap_log(log, 'train')
+        })
+        return output
+
+    def validation_step(self, batch, batch_nb):
+        image, mask = batch
+
+        self.image_filled, _ = self.forward(image, mask)
+
+        g_reconstruction_loss, g_pixel_loss, g_content_loss, g_style_loss, g_tv_loss = self.reconstruction_criterion(
+            self.image_filled, image)
+        g_loss = g_reconstruction_loss
 
         output = OrderedDict({
             'loss/g_loss/reconstruction': g_reconstruction_loss,
@@ -118,10 +84,7 @@ class GAN(pl.LightningModule):
             'loss/g_loss/reconstruction/content': g_content_loss,
             'loss/g_loss/reconstruction/style': g_style_loss,
             'loss/g_loss/reconstruction/tv': g_tv_loss,
-            'loss/g_loss/adversarial': g_adversarial_loss,
-            'loss/g_adversarial_loss': g_adversarial_loss,
             'loss/g_loss': g_loss,
-            'loss/d_loss': d_loss,
             **self._prepare_accuracy_log(image, self.image_filled, self.accuracy_criteria)
         })
         return output
@@ -157,8 +120,7 @@ class GAN(pl.LightningModule):
         b2 = self.hparams.b2
 
         opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr, betas=(b1, b2))
-        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
-        return [opt_g, opt_d], []
+        return [opt_g], []
 
     @pl.data_loader
     def train_dataloader(self):
@@ -174,8 +136,8 @@ class GAN(pl.LightningModule):
             transforms.RandomResizedCrop(256),
             transforms.ToTensor()
         ])
-        image_dataset = ImageDataset(['../data/raw/image/Places2/data_large'], transform=image_transforms)
-        mask_dataset = FileMaskDataset('../data/raw/mask/qd_imd/train', transform=mask_transforms)
+        image_dataset = ImageDataset(['data/raw/image/Places2/data_large'], transform=image_transforms)
+        mask_dataset = FileMaskDataset('data/raw/mask/qd_imd/train', transform=mask_transforms)
         dataset = InpaintingImageDataset(image_dataset, mask_dataset)
         data_loader = DataLoader(dataset, batch_size=self.hparams.batch_size, shuffle=True)
         return data_loader
@@ -192,8 +154,8 @@ class GAN(pl.LightningModule):
             transforms.Resize(256),
             transforms.ToTensor()
         ])
-        image_dataset = ImageDataset(['../data/raw/image/Places2/val_large'], transform=image_transforms)
-        mask_dataset = FileMaskDataset('../data/raw/mask/qd_imd/train', transform=mask_transforms)
+        image_dataset = ImageDataset(['data/raw/image/Places2/val_large'], transform=image_transforms)
+        mask_dataset = FileMaskDataset('data/raw/mask/qd_imd/train', transform=mask_transforms)
         dataset = InpaintingImageDataset(image_dataset, mask_dataset)
         data_loader = DataLoader(dataset, batch_size=self.hparams.batch_size, shuffle=False)
         return data_loader
@@ -201,8 +163,9 @@ class GAN(pl.LightningModule):
     def on_after_backward(self):
         if self.trainer.global_step % 1000 == 0:
             for name, weight in self.generator.named_parameters():
-                self.logger.experiment.add_histogram(f'g_{name}/weight', weight, self.trainer.global_step)
-                self.logger.experiment.add_histogram(f'g_{name}/gradient', weight.grad, self.trainer.global_step)
+                if torch.isfinite(weight.grad).any():
+                    self.logger.experiment.add_histogram(f'g_{name}/weight', weight, self.trainer.global_step)
+                    self.logger.experiment.add_histogram(f'g_{name}/gradient', weight.grad, self.trainer.global_step)
 
     def on_epoch_end(self):
         if not self.example:
@@ -217,23 +180,26 @@ class GAN(pl.LightningModule):
 
 
 if __name__ == '__main__':
-    from argparse import Namespace
+    torch.manual_seed(0)
+    np.random.seed(0)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
-    model_name = 'gan'
+    model_name = 'baseline_bottleneck'
     args = {
         'batch_size': 16,
-        'lr': 0.0001,
+        'lr': 0.0005,
         'b1': 0.5,
         'b2': 0.999,
         'pixel_loss_weight': 0.5,
-        'content_loss_weight': 0.1,
+        'content_loss_weight': 0.02,
         'style_loss_weight': 1000,
-        'tv_loss_weight': 0.1
+        'tv_loss_weight': 0.0
     }
     hparams = Namespace(**args)
-    model = GAN(hparams)
+    model = Baseline(hparams)
 
-    trainer = pl.Trainer(default_save_path=f'../models/{model_name}', gpus=1, use_amp=True,
+    trainer = pl.Trainer(default_save_path=f'models', gpus=1, use_amp=True,
                          train_percent_check=0.0025,
                          val_percent_check=0.005,
                          test_percent_check=0.005,
