@@ -7,11 +7,11 @@ from opencv_transforms import transforms
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from deepstab.load import InpaintingImageDataset, FileMaskDataset, ImageDataset
-from deepstab.metrics import PSNR, MAE, MSE
-from deepstab.model_discriminator import Discriminator
-from deepstab.model_gatingconvolution import GatingConvolutionUNet
-from deepstab.utils import Progbar, logs_to_writer, cycle, mask_tensor, normalize, denormalize
+from inpainting.load import InpaintingImageDataset, FileMaskDataset, ImageDataset
+from inpainting.metrics import PSNR, MAE, MSE
+from inpainting.model_discriminator import Discriminator
+from inpainting.model_gatingconvolution import GatingConvolutionUNet
+from inpainting.utils import Progbar, logs_to_writer, cycle, mask_tensor, normalize, denormalize
 
 amp.register_float_function(torch, 'sigmoid')
 

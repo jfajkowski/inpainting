@@ -1,9 +1,9 @@
 import glob
 
-import cv2 as cv
 import numpy as np
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import IterableDataset
+from PIL import Image
 
 
 class InpaintingImageDataset(Dataset):
@@ -40,8 +40,7 @@ class ImageDataset(Dataset):
             self.considered_images += glob.glob(f'{image_dir}/**/*.jpg', recursive=True)
 
     def __getitem__(self, index: int):
-        image = cv.imread(self.considered_images[index])
-        # image = Image.open(self.considered_images[index]).convert('RGB')
+        image = _load_image(self.considered_images[index], 'image')
         if self.transform is not None:
             image = self.transform(image)
         return image
@@ -83,8 +82,7 @@ class FileMaskDataset(IterableDataset):
 
     def __iter__(self):
         while True:
-            mask = np.expand_dims(cv.imread(next(self.mask_paths_generator), cv.IMREAD_GRAYSCALE), axis=2)
-            # mask = Image.open(next(self.mask_paths_generator)).convert('L')
+            mask = _load_image(next(self.mask_paths_generator), 'mask')
             if self.transform is not None:
                 mask = self.transform(mask)
             yield mask
@@ -152,9 +150,9 @@ class StaticMaskVideoDataset(Dataset):
 
 def _load_image(image_path, image_type):
     if image_type == 'image':
-        return cv.imread(image_path)
+        return Image.open(image_path).convert('RGB')
     elif image_type == 'mask':
-        return np.expand_dims(cv.imread(image_path, cv.IMREAD_GRAYSCALE), axis=2)
+        return Image.open(image_path).convert('L')
     else:
         raise ValueError(image_type)
 

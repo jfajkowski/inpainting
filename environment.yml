@@ -23,5 +23,4 @@ dependencies:
       - -e .
       - flowiz
       - cupy-cuda101
-      - opencv_transforms
       - pytorch_lightning

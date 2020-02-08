@@ -1,14 +1,14 @@
 import math
 
-import flowiz as fz
 import skimage.io as io
 import torch
 import torch.nn.functional as F
 from PIL import Image
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
-from deepstab.pwcnet.model import Network
-from deepstab.region_fill import regionfill
+from inpainting.liteflownet.model import Network
+from inpainting.region_fill import regionfill
+from inpainting.visualize import flow_to_pil_image
 
 
 def estimate_flow(model, x_1, x_2):
@@ -20,6 +20,10 @@ def estimate_flow(model, x_1, x_2):
 
     preprocessed_width = int(math.floor(math.ceil(width / 64.0) * 64.0))
     preprocessed_height = int(math.floor(math.ceil(height / 64.0) * 64.0))
+
+    # Convert to BGR
+    x_1 = x_1.flip(1)
+    x_2 = x_2.flip(1)
 
     tensor_preprocessed_first = torch.nn.functional.interpolate(input=x_1,
                                                                 size=(preprocessed_height, preprocessed_width),
@@ -36,10 +40,6 @@ def estimate_flow(model, x_1, x_2):
     flow[:, 1, :, :] *= float(height) / float(preprocessed_height)
 
     return flow
-
-
-def custom_warp(x, flow):
-    return
 
 
 def warp_tensor(x, flow, mode='bilinear', padding_mode='zeros'):
@@ -79,37 +79,33 @@ def fill_flow(flow, mask):
 
 
 if __name__ == '__main__':
-    image_first = Image.open('../data/raw/video/DAVIS/JPEGImages/Full-Resolution/basketball-game/00000.jpg')
-    image_second = Image.open('../data/raw/video/DAVIS/JPEGImages/Full-Resolution/basketball-game/00001.jpg')
-    image_third = Image.open('../data/raw/video/DAVIS/JPEGImages/Full-Resolution/basketball-game/00002.jpg')
+    with torch.no_grad():
+        image_first = Image.open('data/raw/video/DAVIS/JPEGImages/480p/rollerblade/00000.jpg')
+        image_second = Image.open('data/raw/video/DAVIS/JPEGImages/480p/rollerblade/00001.jpg')
+        image_third = Image.open('data/raw/video/DAVIS/JPEGImages/480p/rollerblade/00002.jpg')
 
-    tensor_first = to_tensor(image_first).flip(2)
-    tensor_second = to_tensor(image_second).flip(2)
-    tensor_third = to_tensor(image_third).flip(2)
+        tensor_first = to_tensor(image_first).unsqueeze(0).cuda()
+        tensor_second = to_tensor(image_second).unsqueeze(0).cuda()
+        tensor_third = to_tensor(image_third).unsqueeze(0).cuda()
 
-    model = Network('../models/pwcnet/network-default.pytorch').cuda().eval()
+        model = Network('models/liteflownet/network-default.pytorch').cuda().eval()
 
-    tensor_flow = estimate_flow(model, tensor_first, tensor_second).detach().flip(2)
-    tensor_warp = warp_tensor(tensor_first.flip(2), tensor_flow)
-    image_forward_flow = Image.fromarray(fz.convert_from_flow(tensor_flow.numpy().transpose(1, 2, 0)))
-    image_forward_warp = to_pil_image(tensor_warp)
+        tensor_flow = estimate_flow(model, tensor_second, tensor_first)
+        tensor_warp = warp_tensor(tensor_first, tensor_flow)
+        image_forward_flow = flow_to_pil_image(tensor_flow.squeeze().cpu())
+        image_forward_warp = to_pil_image(tensor_warp.squeeze().cpu())
 
-    tensor_flow = estimate_flow(model, tensor_third, tensor_second).detach().flip(2)
-    tensor_warp = warp_tensor(tensor_third.flip(2), tensor_flow)
-    image_backward_flow = Image.fromarray(fz.convert_from_flow(tensor_flow.numpy().transpose(1, 2, 0)))
-    image_backward_warp = to_pil_image(tensor_warp)
+        tensor_flow = estimate_flow(model, tensor_second, tensor_second)
+        image_no_flow = flow_to_pil_image(tensor_flow.squeeze().cpu())
 
-    io.imshow_collection([image_first, image_second, image_third])
-    io.show()
-    io.imshow_collection([image_forward_flow, image_forward_warp])
-    io.show()
-    io.imshow_collection([image_backward_flow, image_backward_warp])
-    io.show()
+        tensor_flow = estimate_flow(model, tensor_second, tensor_third)
+        tensor_warp = warp_tensor(tensor_third, tensor_flow)
+        image_backward_flow = flow_to_pil_image(tensor_flow.squeeze().cpu())
+        image_backward_warp = to_pil_image(tensor_warp.squeeze().cpu())
 
-    image_first.save('image_first.jpg')
-    image_second.save('image_second.jpg')
-    image_third.save('image_third.jpg')
-    image_forward_flow.save('image_forward_flow.jpg')
-    image_backward_flow.save('image_backward_flow.jpg')
-    image_forward_warp.save('image_forward_warp.jpg')
-    image_backward_warp.save('image_backward_warp.jpg')
+        io.imshow_collection([image_first, image_second, image_third])
+        io.show()
+        io.imshow_collection([image_forward_flow, image_no_flow, image_backward_flow])
+        io.show()
+        io.imshow_collection([image_forward_warp, image_backward_warp])
+        io.show()

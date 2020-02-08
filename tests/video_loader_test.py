@@ -2,8 +2,8 @@ import glob
 
 from torchvision.transforms import transforms
 
-from deepstab.load import VideoDataset
-from deepstab.visualize import show_image
+from inpainting.load import VideoDataset
+from inpainting.visualize import show_image
 
 time = 8
 batch_size = 8

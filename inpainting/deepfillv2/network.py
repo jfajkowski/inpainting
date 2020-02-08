@@ -1,4 +1,4 @@
-from deepstab.deepfillv2.network_module import *
+from inpainting.deepfillv2.network_module import *
 
 
 # -----------------------------------------------

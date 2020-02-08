@@ -2,11 +2,11 @@ import glob
 
 import torch
 from apex.amp import amp, scale_loss
-from deepstab.partialconv.loss import VGG16PartialLoss
+from inpainting.partialconv.loss import VGG16PartialLoss
 from torch.utils.data.dataloader import DataLoader
 from torchvision.transforms import transforms
 
-from deepstab.load import VideoDataset
+from inpainting.load import VideoDataset
 
 time = 8
 batch_size = 1

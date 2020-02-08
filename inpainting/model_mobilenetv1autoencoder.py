@@ -6,8 +6,8 @@ from apex.amp import amp, scale_loss
 from torch import nn
 from torchvision.transforms import transforms
 
-from deepstab.partialconv.loss import VGG16PartialLoss
-from deepstab.utils import cutout_mask, extract_mask
+from inpainting.partialconv.loss import VGG16PartialLoss
+from inpainting.utils import cutout_mask, extract_mask
 
 
 class MobilenetV1Autoencoder(nn.Module):

@@ -1,17 +1,18 @@
+from argparse import Namespace
 from collections import OrderedDict
 
-import opencv_transforms.transforms as transforms
+import numpy as np
 import pytorch_lightning as pl
+import torchvision.transforms as transforms
 import torch
 from torch.utils.data import DataLoader
 
-from deepstab.configuration import MyLogger
-from deepstab.load import ImageDataset, FileMaskDataset, InpaintingImageDataset
-from deepstab.loss import ReconstructionLoss
-from deepstab.metrics import PSNR, MAE, MSE
-from deepstab.model_discriminator import Discriminator
-from deepstab.model_gatingconvolution import GatingConvolutionUNet
-from deepstab.utils import mask_tensor, denormalize, list_of_dicts_to_dict_of_lists, mean_and_std
+from inpainting.configuration import MyLogger
+from inpainting.load import ImageDataset, FileMaskDataset, InpaintingImageDataset
+from inpainting.loss import ReconstructionLoss
+from inpainting.metrics import PSNR, MAE, MSE
+from inpainting.model_attention import Generator, Discriminator
+from inpainting.utils import mask_tensor, denormalize, list_of_dicts_to_dict_of_lists, mean_and_std
 
 
 class GAN(pl.LightningModule):
@@ -20,7 +21,7 @@ class GAN(pl.LightningModule):
         super(GAN, self).__init__()
         self.hparams = hparams
 
-        self.generator = GatingConvolutionUNet()
+        self.generator = Generator()
         self.discriminator = Discriminator()
 
         self.reconstruction_criterion = ReconstructionLoss(
@@ -47,8 +48,8 @@ class GAN(pl.LightningModule):
 
     def training_step(self, batch, batch_nb, optimizer_idx):
         image, mask = batch
-        real = torch.ones((self.hparams.batch_size, 16384))
-        fake = torch.zeros((self.hparams.batch_size, 16384))
+        real = torch.ones((self.hparams.batch_size, 1, 16, 16))
+        fake = torch.zeros((self.hparams.batch_size, 1, 16, 16))
         if self.on_gpu:
             real = real.cuda(image.device.index)
             fake = fake.cuda(image.device.index)
@@ -95,8 +96,8 @@ class GAN(pl.LightningModule):
 
     def validation_step(self, batch, batch_nb):
         image, mask = batch
-        real = torch.ones((self.hparams.batch_size, 16384))
-        fake = torch.zeros((self.hparams.batch_size, 16384))
+        real = torch.ones((self.hparams.batch_size, 1, 16, 16))
+        fake = torch.zeros((self.hparams.batch_size, 1, 16, 16))
         if self.on_gpu:
             real = real.cuda(image.device.index)
             fake = fake.cuda(image.device.index)
@@ -164,18 +165,17 @@ class GAN(pl.LightningModule):
     def train_dataloader(self):
         image_transforms = transforms.Compose([
             transforms.RandomRotation(10),
-            transforms.RandomResizedCrop(256),
+            transforms.RandomResizedCrop((256, 256)),
             transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.flip(0)),
             transforms.Normalize(*mean_and_std())
         ])
         mask_transforms = transforms.Compose([
             transforms.RandomRotation(180),
-            transforms.RandomResizedCrop(256),
+            transforms.RandomResizedCrop((256, 256)),
             transforms.ToTensor()
         ])
-        image_dataset = ImageDataset(['../data/raw/image/Places2/data_large'], transform=image_transforms)
-        mask_dataset = FileMaskDataset('../data/raw/mask/qd_imd/train', transform=mask_transforms)
+        image_dataset = ImageDataset(['data/raw/image/Places2/data_large'], transform=image_transforms)
+        mask_dataset = FileMaskDataset('data/raw/mask/qd_imd/train', transform=mask_transforms)
         dataset = InpaintingImageDataset(image_dataset, mask_dataset)
         data_loader = DataLoader(dataset, batch_size=self.hparams.batch_size, shuffle=True)
         return data_loader
@@ -183,17 +183,16 @@ class GAN(pl.LightningModule):
     @pl.data_loader
     def val_dataloader(self):
         image_transforms = transforms.Compose([
-            transforms.CenterCrop(256),
+            transforms.CenterCrop((256, 256)),
             transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.flip(0)),
             transforms.Normalize(*mean_and_std())
         ])
         mask_transforms = transforms.Compose([
-            transforms.Resize(256),
+            transforms.Resize((256, 256)),
             transforms.ToTensor()
         ])
-        image_dataset = ImageDataset(['../data/raw/image/Places2/val_large'], transform=image_transforms)
-        mask_dataset = FileMaskDataset('../data/raw/mask/qd_imd/train', transform=mask_transforms)
+        image_dataset = ImageDataset(['data/raw/image/Places2/val_large'], transform=image_transforms)
+        mask_dataset = FileMaskDataset('data/raw/mask/qd_imd/train', transform=mask_transforms)
         dataset = InpaintingImageDataset(image_dataset, mask_dataset)
         data_loader = DataLoader(dataset, batch_size=self.hparams.batch_size, shuffle=False)
         return data_loader
@@ -201,8 +200,9 @@ class GAN(pl.LightningModule):
     def on_after_backward(self):
         if self.trainer.global_step % 1000 == 0:
             for name, weight in self.generator.named_parameters():
-                self.logger.experiment.add_histogram(f'g_{name}/weight', weight, self.trainer.global_step)
-                self.logger.experiment.add_histogram(f'g_{name}/gradient', weight.grad, self.trainer.global_step)
+                if torch.isfinite(weight.grad).any():
+                    self.logger.experiment.add_histogram(f'g_{name}/weight', weight, self.trainer.global_step)
+                    self.logger.experiment.add_histogram(f'g_{name}/gradient', weight.grad, self.trainer.global_step)
 
     def on_epoch_end(self):
         if not self.example:
@@ -217,26 +217,30 @@ class GAN(pl.LightningModule):
 
 
 if __name__ == '__main__':
-    from argparse import Namespace
+    torch.manual_seed(0)
+    np.random.seed(0)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
-    model_name = 'gan'
+    model_name = 'sagan'
     args = {
         'batch_size': 16,
         'lr': 0.0001,
         'b1': 0.5,
         'b2': 0.999,
-        'pixel_loss_weight': 0.5,
-        'content_loss_weight': 0.1,
-        'style_loss_weight': 1000,
-        'tv_loss_weight': 0.1
+        'pixel_loss_weight': 1.0,
+        'content_loss_weight': 0.0,
+        'style_loss_weight': 0.0,
+        'tv_loss_weight': 0.0,
+        'gan': 'hinge'
     }
     hparams = Namespace(**args)
     model = GAN(hparams)
 
-    trainer = pl.Trainer(default_save_path=f'../models/{model_name}', gpus=1, use_amp=True,
+    trainer = pl.Trainer(default_save_path=f'models', gpus=1, use_amp=True,
                          train_percent_check=0.0025,
                          val_percent_check=0.005,
-                         test_percent_check=0.005,
                          logger=MyLogger(model_name),
-                         early_stop_callback=False)
+                         early_stop_callback=False,
+                         max_epochs=100)
     trainer.fit(model)

@@ -1,6 +1,6 @@
 import torch
 
-from deepstab.pwcnet.correlation import correlation
+from inpainting.pwcnet.correlation import correlation
 
 ##########################################################
 

@@ -1,21 +1,30 @@
 import time
 
 import cv2 as cv
+import numpy as np
 import torch
-from opencv_transforms.functional import resize
 from torchvision.transforms.functional import to_tensor
 
-from deepstab.inpainting import FlowInpaintingAlgorithm
-from deepstab.liteflownet import Network
-from deepstab.load import RectangleMaskDataset
-from deepstab.model_gatingconvolution import GatingConvolutionUNet
-from deepstab.utils import cv_image_to_tensor, tensor_to_cv_image, mask_tensor
+from inpainting.inpainting import FlowInpaintingAlgorithm
+from inpainting.liteflownet import Network
+from inpainting.load import RectangleMaskDataset
+from inpainting.model_gatingconvolution import GatingConvolutionUNet
+from inpainting.utils import mask_tensor
 
 
 def set_res(cap, x, y):
     cap.set(cv.CAP_PROP_FRAME_WIDTH, int(x))
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, int(y))
     return str(cap.get(cv.CAP_PROP_FRAME_WIDTH)), str(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+
+
+
+def tensor_to_cv_image(image_tensor: torch.Tensor):
+    return image_tensor.flip(0).permute(1, 2, 0).numpy().astype(np.uint8)
+
+
+def cv_image_to_tensor(mat: np.ndarray):
+    return torch.from_numpy(mat).permute(2, 0, 1).flip(0).float()
 
 
 cap = cv.VideoCapture(0)
@@ -38,10 +47,11 @@ with torch.no_grad():
 
         # Our operations on the frame come here
         start = time.perf_counter()
-        frame = cv_image_to_tensor(resize(frame, (256, 256))).unsqueeze(0).cuda()
+        frame = cv.resize(frame, (256, 256))
+        frame = cv_image_to_tensor(frame).unsqueeze(0).cuda()
         frame = frame / 255
-        inpainted = inpainting.inpaint_online(mask_tensor(frame, mask), mask)
-        # # inpainted = mask_tensor(frame, mask)
+        inpainted = inpainting.inpaint_online(frame, mask)
+        # inpainted = mask_tensor(frame, mask)
         inpainted = inpainted * 255
         inpainted = tensor_to_cv_image(inpainted.squeeze(0).cpu())
         end = time.perf_counter()

@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
-from deepstab.utils import denormalize, normalize
+from inpainting.utils import denormalize, normalize
 
 
 class Vgg16(nn.Module):

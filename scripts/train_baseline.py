@@ -2,17 +2,17 @@ from argparse import Namespace
 from collections import OrderedDict
 
 import numpy as np
-import opencv_transforms.transforms as transforms
 import pytorch_lightning as pl
 import torch
+import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
-from deepstab.configuration import MyLogger
-from deepstab.load import ImageDataset, FileMaskDataset, InpaintingImageDataset
-from deepstab.loss import ReconstructionLoss
-from deepstab.metrics import PSNR, MAE, MSE
-from deepstab.model_autoencoder import GatingConvolutionAutoencoder
-from deepstab.utils import mask_tensor, denormalize, list_of_dicts_to_dict_of_lists, mean_and_std
+from inpainting.configuration import MyLogger
+from inpainting.load import ImageDataset, FileMaskDataset, InpaintingImageDataset
+from inpainting.loss import ReconstructionLoss
+from inpainting.metrics import PSNR, MAE, MSE
+from inpainting.model_gatingconvolution import GatingConvolutionUNet
+from inpainting.utils import mask_tensor, denormalize, list_of_dicts_to_dict_of_lists, mean_and_std
 
 
 class Baseline(pl.LightningModule):
@@ -21,7 +21,7 @@ class Baseline(pl.LightningModule):
         super(Baseline, self).__init__()
         self.hparams = hparams
 
-        self.generator = GatingConvolutionAutoencoder()
+        self.generator = GatingConvolutionUNet()
 
         self.reconstruction_criterion = ReconstructionLoss(
             self.hparams.pixel_loss_weight,
@@ -126,14 +126,13 @@ class Baseline(pl.LightningModule):
     def train_dataloader(self):
         image_transforms = transforms.Compose([
             transforms.RandomRotation(10),
-            transforms.RandomResizedCrop(256),
+            transforms.RandomResizedCrop((256, 256)),
             transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.flip(0)),
             transforms.Normalize(*mean_and_std())
         ])
         mask_transforms = transforms.Compose([
             transforms.RandomRotation(180),
-            transforms.RandomResizedCrop(256),
+            transforms.RandomResizedCrop((256, 256)),
             transforms.ToTensor()
         ])
         image_dataset = ImageDataset(['data/raw/image/Places2/data_large'], transform=image_transforms)
@@ -145,13 +144,12 @@ class Baseline(pl.LightningModule):
     @pl.data_loader
     def val_dataloader(self):
         image_transforms = transforms.Compose([
-            transforms.CenterCrop(256),
+            transforms.CenterCrop((256, 256)),
             transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.flip(0)),
             transforms.Normalize(*mean_and_std())
         ])
         mask_transforms = transforms.Compose([
-            transforms.Resize(256),
+            transforms.Resize((256, 256)),
             transforms.ToTensor()
         ])
         image_dataset = ImageDataset(['data/raw/image/Places2/val_large'], transform=image_transforms)
@@ -185,7 +183,7 @@ if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    model_name = 'baseline_bottleneck'
+    model_name = 'baseline_unet_benchmark'
     args = {
         'batch_size': 16,
         'lr': 0.0005,
@@ -202,7 +200,7 @@ if __name__ == '__main__':
     trainer = pl.Trainer(default_save_path=f'models', gpus=1, use_amp=True,
                          train_percent_check=0.0025,
                          val_percent_check=0.005,
-                         test_percent_check=0.005,
                          logger=MyLogger(model_name),
-                         early_stop_callback=False)
+                         early_stop_callback=False,
+                         max_epochs=100)
     trainer.fit(model)

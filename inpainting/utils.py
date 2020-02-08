@@ -1,9 +1,6 @@
 from collections import OrderedDict
 
-import cv2 as cv
-import numpy as np
 import torch
-from torch.nn.functional import conv2d
 
 
 # generates superresolution mask
@@ -12,11 +9,6 @@ from torch.nn.functional import conv2d
 #     for y in range(32):
 #         if (x + y) % 2 == 0:
 #             mask[x, y] = 255
-
-
-def dilate(tensor, size):
-    structuring_element = torch.ones((size, size)).view(1, 1, size, size).cuda()
-    return (conv2d(tensor, structuring_element, stride=1, padding=(size // 2, size // 2)) > 0).float()
 
 
 def mask_tensor(x, m):
@@ -52,14 +44,6 @@ def mean_and_std(mode='standard'):
         raise ValueError(mode)
 
 
-def tensor_to_cv_image(image_tensor: torch.Tensor):
-    return image_tensor.permute(1, 2, 0).numpy().astype(np.uint8)
-
-
-def cv_image_to_tensor(mat: np.ndarray):
-    return torch.from_numpy(mat).permute(2, 0, 1).float()
-
-
 def list_of_dicts_to_dict_of_lists(x):
     y = OrderedDict()
     for d in x:
@@ -69,12 +53,3 @@ def list_of_dicts_to_dict_of_lists(x):
             else:
                 y[k] = [v]
     return y
-
-
-DEBUG = True
-DEBUG_PATH = './debug'
-
-
-def debug(tensor, name):
-    if DEBUG:
-        cv.imwrite(tensor_to_cv_image(tensor))

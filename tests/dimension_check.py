@@ -1,7 +1,7 @@
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
-from deepstab.load import ImageDataset, FileMaskDataset, InpaintingImageDataset
+from inpainting.load import ImageDataset, FileMaskDataset, InpaintingImageDataset
 
 IMAGE_SIZE = 256
 BATCH_SIZE = 8

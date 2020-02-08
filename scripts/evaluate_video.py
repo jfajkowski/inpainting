@@ -10,13 +10,13 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 
-from deepstab.evaluate import evaluate_video
-from deepstab.inpainting import ImageInpaintingAlgorithm, FlowInpaintingAlgorithm
-from deepstab.liteflownet import Network
-from deepstab.load import StaticMaskVideoDataset, VideoDataset, RectangleMaskDataset, FileMaskDataset, \
+from inpainting.evaluate import evaluate_video
+from inpainting.inpainting import ImageInpaintingAlgorithm, FlowInpaintingAlgorithm
+from inpainting.liteflownet import Network
+from inpainting.load import StaticMaskVideoDataset, VideoDataset, RectangleMaskDataset, FileMaskDataset, \
     DynamicMaskVideoDataset
-from deepstab.model_gatingconvolution import GatingConvolutionUNet
-from deepstab.utils import cv_image_to_tensor, tensor_to_cv_image, mask_tensor
+from inpainting.model_gatingconvolution import GatingConvolutionUNet
+from inpainting.utils import cv_image_to_tensor, tensor_to_cv_image, mask_tensor
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model-path', type=str,

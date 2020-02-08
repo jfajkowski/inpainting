@@ -1,6 +1,6 @@
 import torch
 
-from deepstab.liteflownet.correlation import correlation
+from inpainting.liteflownet.correlation import correlation
 
 Backward_tensorGrid = {}
 
