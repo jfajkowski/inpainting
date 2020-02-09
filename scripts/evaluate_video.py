@@ -11,11 +11,11 @@ import torch
 from tqdm import tqdm
 
 from inpainting.evaluate import evaluate_video
-from inpainting.inpainting import ImageInpaintingAlgorithm, FlowInpaintingAlgorithm
+from inpainting.inpainting import FillInpaintingAlgorithm, FlowInpaintingAlgorithm
 from inpainting.liteflownet import Network
 from inpainting.load import StaticMaskVideoDataset, VideoDataset, RectangleMaskDataset, FileMaskDataset, \
     DynamicMaskVideoDataset
-from inpainting.model_gatingconvolution import GatingConvolutionUNet
+from inpainting.model_generator import GatingConvolutionUNet
 from inpainting.utils import cv_image_to_tensor, tensor_to_cv_image, mask_tensor
 
 parser = argparse.ArgumentParser()
@@ -43,7 +43,7 @@ state = torch.load('../models/20200122_gatingconvunet_gan/model_epoch_275_lr_0.0
 inpainting_model = GatingConvolutionUNet().cuda().eval()
 inpainting_model.load_state_dict(state['generator'])
 algorithms = [
-    ('image_based', ImageInpaintingAlgorithm(inpainting_model)),
+    ('image_based', FillInpaintingAlgorithm(inpainting_model)),
     ('flow_based', FlowInpaintingAlgorithm(flow_model, inpainting_model))
 ]
 

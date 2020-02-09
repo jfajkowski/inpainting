@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from torchvision.transforms.functional import to_pil_image
 
-DEBUG = True
-DEBUG_PATH = './debug'
+DEBUG = False
+DEBUG_PATH = 'debug'
 
 
 def flow_to_pil_image(tensor):
@@ -32,7 +32,7 @@ def animate_sequence(*args):
         ax.axis('off')
     images = []
     for elements in zip(*args):
-        images.append([ax.imshow(e, animated=True) for ax, e in zip(axes, elements)])
+        images.append([ax.imshow(e, animated=True, cmap='Greys') for ax, e in zip(axes, elements)])
     ani = animation.ArtistAnimation(fig, images, interval=50, blit=True, repeat_delay=1000)
     plt.close()
     return ani

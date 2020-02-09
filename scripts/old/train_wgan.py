@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from inpainting.load import InpaintingImageDataset, FileMaskDataset, ImageDataset
 from inpainting.metrics import PSNR, MAE, MSE
 from inpainting.model_discriminator import Discriminator
-from inpainting.model_gatingconvolution import GatingConvolutionUNet
+from inpainting.model_generator import GatingConvolutionUNet
 from inpainting.utils import Progbar, logs_to_writer, cycle, mask_tensor, normalize, denormalize
 
 amp.register_float_function(torch, 'sigmoid')

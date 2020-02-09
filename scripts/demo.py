@@ -3,13 +3,12 @@ import time
 import cv2 as cv
 import numpy as np
 import torch
+from scripts.train_baseline import Baseline
 from torchvision.transforms.functional import to_tensor
 
-from inpainting.inpainting import FlowInpaintingAlgorithm
-from inpainting.liteflownet import Network
+from inpainting.inpainting import FlowAndFillInpaintingAlgorithm
 from inpainting.load import RectangleMaskDataset
-from inpainting.model_gatingconvolution import GatingConvolutionUNet
-from inpainting.utils import mask_tensor
+from inpainting.pwcnet import Network
 
 
 def set_res(cap, x, y):
@@ -32,13 +31,14 @@ print(f'Resolution: {set_res(cap, 320, 240)}')
 
 mask = to_tensor(next(iter(RectangleMaskDataset(256, 256, (128 - 32, 128 - 32, 64, 64))))).unsqueeze(0).float().cuda()
 
-flow_model = Network('../models/liteflownet/network-default.pytorch').eval().cuda()
+flow_model = Network('models/pwcnet/network-default.pytorch').cuda().eval()
+# inpainting_algorithm = FlowInpaintingAlgorithm(flow_model)
 
-state = torch.load('../models/20200122_gatingconvunet_gan/model_epoch_275_lr_0.0001.pth')
-inpainting_model = GatingConvolutionUNet().cuda().eval()
-inpainting_model.load_state_dict(state['generator'])
+fill_model = Baseline.load_from_checkpoint(
+    'models/baseline_unet/version_0/checkpoints/_ckpt_epoch_96.ckpt').generator.cuda().eval()
+# inpainting_algorithm = FillInpaintingAlgorithm(fill_model)
 
-inpainting = FlowInpaintingAlgorithm(flow_model, inpainting_model)
+inpainting_algorithm = FlowAndFillInpaintingAlgorithm(flow_model, fill_model)
 
 with torch.no_grad():
     while True:
@@ -50,7 +50,7 @@ with torch.no_grad():
         frame = cv.resize(frame, (256, 256))
         frame = cv_image_to_tensor(frame).unsqueeze(0).cuda()
         frame = frame / 255
-        inpainted = inpainting.inpaint_online(frame, mask)
+        inpainted = inpainting_algorithm.inpaint_online(frame, mask)[0]
         # inpainted = mask_tensor(frame, mask)
         inpainted = inpainted * 255
         inpainted = tensor_to_cv_image(inpainted.squeeze(0).cpu())

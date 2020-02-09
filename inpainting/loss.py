@@ -97,7 +97,8 @@ class ReconstructionLoss(nn.Module):
         style_loss *= self.style_loss_weight
         tv_loss *= self.tv_loss_weight
 
-        loss_output = namedtuple("LossOutput", ['combined_loss', 'pixel_loss', 'content_loss', 'style_loss', 'tv_loss'])
+        loss_output = namedtuple("ReconstructionLossOutput",
+                                 ['combined_loss', 'pixel_loss', 'content_loss', 'style_loss', 'tv_loss'])
         return loss_output(
             pixel_loss + content_loss + style_loss + tv_loss,
             pixel_loss,
@@ -105,3 +106,82 @@ class ReconstructionLoss(nn.Module):
             style_loss,
             tv_loss
         )
+
+
+class AdversarialGeneratorCriterion(nn.Module):
+
+    def __init__(self, criterion_type=''):
+        super(AdversarialGeneratorCriterion, self).__init__()
+        self.criterion_type = criterion_type
+        self.criterion = torch.nn.BCEWithLogitsLoss()
+
+    def forward(self, x):
+        # Compute G loss with fake images & real labels
+        if self.criterion_type == 'dcgan':
+            g_loss = self.criterion(x, torch.ones_like(x))
+        else:
+            g_loss = -x.mean()
+        return g_loss
+
+
+class AdversarialDiscriminatorCriterion(nn.Module):
+
+    def __init__(self, criterion_type=''):
+        super(AdversarialDiscriminatorCriterion, self).__init__()
+        self.criterion_type = criterion_type
+        self.criterion = torch.nn.BCEWithLogitsLoss()
+
+    def forward(self, real, fake):
+        real_loss = self._forward_discriminator_real(real)
+        fake_loss = self._forward_discriminator_fake(fake)
+        loss_output = namedtuple("AdversarialDiscriminatorLossOutput",
+                                 ['combined_loss', 'real_loss', 'fake_loss'])
+        return loss_output(
+            real_loss + fake_loss,
+            real_loss,
+            fake_loss
+        )
+
+    def _forward_discriminator_real(self, x):
+        # Compute D loss with real images & real labels
+        if self.criterion_type == 'hinge':
+            d_loss_real = torch.relu(torch.ones_like(x) - x).mean()
+        elif self.criterion_type == 'wgan_gp':
+            d_loss_real = -x.mean()
+        else:
+            d_loss_real = self.criterion(x, torch.ones_like(x))
+        return d_loss_real
+
+    def _forward_discriminator_fake(self, x):
+        # Compute D loss with fake images & real labels
+        if self.criterion_type == 'hinge':
+            d_loss_fake = torch.relu(torch.ones_like(x) + x).mean()
+        elif self.criterion_type == 'dcgan':
+            d_loss_fake = self.criterion(x, torch.zeros_like(x))
+        else:
+            d_loss_fake = x.mean()
+
+        # # If WGAN_GP, compute GP and add to D loss
+        # if self.config.adv_loss == 'wgan_gp':
+        #     d_loss_gp = self.config.lambda_gp * self._compute_gradient_penalty(real_images, real_labels,
+        #                                                                        fake_images.detach())
+        #     d_loss_fake += d_loss_gp
+
+        return d_loss_fake
+
+    # def _compute_gradient_penalty(self, real_images, real_labels, fake_images):
+    #     # Compute gradient penalty
+    #     alpha = torch.rand(real_images.size(0), 1, 1, 1).expand_as(real_images).to(device)
+    #     interpolated = torch.tensor(alpha * real_images + (1 - alpha) * fake_images, requires_grad=True)
+    #     out = self.D(interpolated, real_labels)
+    #     exp_grad = torch.ones(out.size()).to(device)
+    #     grad = torch.autograd.grad(outputs=out,
+    #                                inputs=interpolated,
+    #                                grad_outputs=exp_grad,
+    #                                retain_graph=True,
+    #                                create_graph=True,
+    #                                only_inputs=True)[0]
+    #     grad = grad.view(grad.size(0), -1)
+    #     grad_l2norm = torch.sqrt(torch.sum(grad ** 2, dim=1))
+    #     d_loss_gp = torch.mean((grad_l2norm - 1) ** 2)
+    #     return d_loss_gp

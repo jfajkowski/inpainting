@@ -1,5 +1,3 @@
-from collections import OrderedDict
-
 import torch
 
 
@@ -42,14 +40,3 @@ def mean_and_std(mode='standard'):
         return [0.0, 0.0, 0.0], [1.0, 1.0, 1.0]
     else:
         raise ValueError(mode)
-
-
-def list_of_dicts_to_dict_of_lists(x):
-    y = OrderedDict()
-    for d in x:
-        for k, v in d.items():
-            if k in y:
-                y[k].append(v)
-            else:
-                y[k] = [v]
-    return y
