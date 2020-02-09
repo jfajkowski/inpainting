@@ -13,18 +13,17 @@ from inpainting.load import ImageDataset, FileMaskDataset, InpaintingImageDatase
 from inpainting.loss import ReconstructionLoss, AdversarialGeneratorCriterion, AdversarialDiscriminatorCriterion
 from inpainting.metrics import PSNR, MAE, MSE
 from inpainting.model_discriminator import Discriminator
-from inpainting.model_generator import GatingConvolutionAutoencoder
+from inpainting.model_generator import GatingConvolutionAutoencoder, GatingConvolutionUNet
 from inpainting.utils import mask_tensor, denormalize, mean_and_std
 
 
-class GAN(pl.LightningModule):
+class InpaintingTrainer(pl.LightningModule):
 
-    def __init__(self, hparams):
-        super(GAN, self).__init__()
+    def __init__(self, generator, hparams):
+        super(InpaintingTrainer, self).__init__()
         self.hparams = hparams
 
-        self.generator = GatingConvolutionAutoencoder()
-        self.discriminator = Discriminator()
+        self.generator = generator
 
         self.reconstruction_criterion = ReconstructionLoss(
             self.hparams.pixel_loss_weight,
@@ -32,8 +31,6 @@ class GAN(pl.LightningModule):
             self.hparams.style_loss_weight,
             self.hparams.tv_loss_weight
         )
-        self.adversarial_generator_criterion = AdversarialGeneratorCriterion(hparams.adversarial_type)
-        self.adversarial_discriminator_criterion = AdversarialDiscriminatorCriterion(hparams.adversarial_type)
 
         self.accuracy_criteria = {
             'psnr': PSNR(1),
@@ -49,66 +46,41 @@ class GAN(pl.LightningModule):
         image_filled = self.generator(image_masked, mask)
         return image_filled, image_masked
 
-    def training_step(self, batch, batch_nb, optimizer_idx):
-        image, mask = batch
-
-        if optimizer_idx == 0:
-            self.image_filled, _ = self.forward(image, mask)
-
-            g_reconstruction_loss, g_pixel_loss, g_content_loss, g_style_loss, g_tv_loss = self.reconstruction_criterion(
-                self.image_filled, image)
-            g_adversarial_loss = self.adversarial_generator_criterion(self.discriminator(self.image_filled))
-            g_loss = (g_reconstruction_loss + g_adversarial_loss) / 2
-
-            log = OrderedDict({
-                'g_loss/reconstruction': g_reconstruction_loss,
-                'g_loss/reconstruction/pixel': g_pixel_loss,
-                'g_loss/reconstruction/content': g_content_loss,
-                'g_loss/reconstruction/style': g_style_loss,
-                'g_loss/reconstruction/tv': g_tv_loss,
-                'g_loss/adversarial': g_adversarial_loss,
-                'g_loss': g_loss,
-                **self._prepare_accuracy_log(image, self.image_filled, self.accuracy_criteria)
-            })
-            output = OrderedDict({
-                'loss': g_loss,
-                'progress_bar': log,
-                'log': self._wrap_log(log, 'train')
-            })
-            return output
-
-        if optimizer_idx == 1:
-            d_loss, d_real_loss, d_fake_loss = self.adversarial_discriminator_criterion(
-                self.discriminator(image),
-                self.discriminator(self.image_filled.detach())
-            )
-
-            log = {
-                'd_loss/real': d_real_loss,
-                'd_loss/fake': d_fake_loss,
-                'd_loss': d_loss
-            }
-            output = OrderedDict({
-                'loss': d_loss,
-                'progress_bar': log,
-                'log': self._wrap_log(log, 'train')
-            })
-            return output
-
-    def validation_step(self, batch, batch_nb):
+    def training_step(self, *args, **kwargs):
+        batch = args[0]
         image, mask = batch
 
         self.image_filled, _ = self.forward(image, mask)
 
         g_reconstruction_loss, g_pixel_loss, g_content_loss, g_style_loss, g_tv_loss = self.reconstruction_criterion(
             self.image_filled, image)
-        g_adversarial_loss = self.adversarial_generator_criterion(self.discriminator(self.image_filled))
-        g_loss = (g_reconstruction_loss + g_adversarial_loss) / 2
+        g_loss = g_reconstruction_loss
 
-        d_loss, d_real_loss, d_fake_loss = self.adversarial_discriminator_criterion(
-            self.discriminator(image),
-            self.discriminator(self.image_filled.detach())
-        )
+        log = OrderedDict({
+            'g_loss/reconstruction': g_reconstruction_loss,
+            'g_loss/reconstruction/pixel': g_pixel_loss,
+            'g_loss/reconstruction/content': g_content_loss,
+            'g_loss/reconstruction/style': g_style_loss,
+            'g_loss/reconstruction/tv': g_tv_loss,
+            'g_loss': g_loss,
+            **self._prepare_accuracy_log(image, self.image_filled, self.accuracy_criteria)
+        })
+        output = OrderedDict({
+            'loss': g_loss,
+            'progress_bar': log,
+            'log': self._wrap_log(log, 'train')
+        })
+        return output
+
+    def validation_step(self, *args, **kwargs):
+        batch = args[0]
+        image, mask = batch
+
+        self.image_filled, _ = self.forward(image, mask)
+
+        g_reconstruction_loss, g_pixel_loss, g_content_loss, g_style_loss, g_tv_loss = self.reconstruction_criterion(
+            self.image_filled, image)
+        g_loss = g_reconstruction_loss
 
         output = OrderedDict({
             'g_loss/reconstruction': g_reconstruction_loss,
@@ -116,11 +88,7 @@ class GAN(pl.LightningModule):
             'g_loss/reconstruction/content': g_content_loss,
             'g_loss/reconstruction/style': g_style_loss,
             'g_loss/reconstruction/tv': g_tv_loss,
-            'g_loss/adversarial': g_adversarial_loss,
             'g_loss': g_loss,
-            'd_loss/real': d_real_loss,
-            'd_loss/fake': d_fake_loss,
-            'd_loss': d_loss,
             **self._prepare_accuracy_log(image, self.image_filled, self.accuracy_criteria)
         })
         return output
@@ -166,8 +134,7 @@ class GAN(pl.LightningModule):
         b2 = self.hparams.b2
 
         opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr, betas=(b1, b2))
-        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
-        return [opt_g, opt_d], []
+        return opt_g
 
     @pl.data_loader
     def train_dataloader(self):
@@ -212,20 +179,95 @@ class GAN(pl.LightningModule):
                     self.logger.experiment.add_histogram(f'g_{name}/weight', weight, self.trainer.global_step)
                     self.logger.experiment.add_histogram(f'g_{name}/gradient', weight.grad, self.trainer.global_step)
 
-    def on_epoch_end(self):
-        if not self.example:
-            self.example = next(iter(self.val_dataloader()[0]))
+    def on_before_zero_grad(self, optimizer):
+        if self.trainer.global_step % 1000 == 0:
+            if not self.example:
+                self.example = next(iter(self.val_dataloader()[0]))
+
+                image, mask = self.example
+                image_masked = mask_tensor(image, mask)
+                self.logger.experiment.add_images(f'image', denormalize(image))
+                self.logger.experiment.add_images(f'mask', mask)
+                self.logger.experiment.add_images(f'image_masked', denormalize(image_masked))
 
             image, mask = self.example
-            image_masked = mask_tensor(image, mask)
-            self.logger.experiment.add_images(f'image', denormalize(image))
-            self.logger.experiment.add_images(f'mask', mask)
-            self.logger.experiment.add_images(f'image_masked', denormalize(image_masked))
+            image, mask = image.cuda(), mask.cuda()
+            image_filled, _ = self.forward(image, mask)
+            self.logger.experiment.add_images(f'image_filled', denormalize(image_filled), self.current_epoch)
 
-        image, mask = self.example
-        image, mask = image.cuda(), mask.cuda()
-        image_filled, _ = self.forward(image, mask)
-        self.logger.experiment.add_images(f'image_filled', denormalize(image_filled), self.current_epoch)
+
+class InpaintingAdversarialTrainer(InpaintingTrainer):
+
+    def __init__(self, generator, discriminator, hparams):
+        super(InpaintingAdversarialTrainer, self).__init__(hparams, generator)
+
+        self.discriminator = discriminator
+
+        self.adversarial_generator_criterion = AdversarialGeneratorCriterion(hparams.adversarial_type)
+        self.adversarial_discriminator_criterion = AdversarialDiscriminatorCriterion(hparams.adversarial_type)
+
+    def training_step(self, *args, **kwargs):
+        batch, optimizer_idx = args[0], args[2]
+        image, mask = batch
+
+        if optimizer_idx == 0:
+            output = super(InpaintingAdversarialTrainer, self).training_step(*args, **kwargs)
+
+            g_adversarial_loss = self.adversarial_generator_criterion(self.image_filled)
+            g_loss = (output['loss'] + g_adversarial_loss) / 2
+
+            output['loss'] = g_loss
+            output['progress_bar']['g_loss/adversarial'] = g_adversarial_loss
+            output['log']['g_loss/adversarial'] = {'train': g_adversarial_loss}
+
+            return output
+
+        if optimizer_idx == 1:
+            d_loss, d_real_loss, d_fake_loss = self.adversarial_discriminator_criterion(
+                self.discriminator(image),
+                self.discriminator(self.image_filled.detach())
+            )
+
+            log = {
+                'd_loss/real': d_real_loss,
+                'd_loss/fake': d_fake_loss,
+                'd_loss': d_loss
+            }
+            output = OrderedDict({
+                'loss': d_loss,
+                'progress_bar': log,
+                'log': self._wrap_log(log, 'train')
+            })
+            return output
+
+    def validation_step(self, *args, **kwargs):
+        batch = args[0]
+        image, mask = batch
+
+        output = super(InpaintingAdversarialTrainer, self).validation_step(*args, **kwargs)
+
+        g_adversarial_loss = self.adversarial_generator_criterion(self.discriminator(self.image_filled))
+        g_loss = (output['g_loss'] + g_adversarial_loss) / 2
+
+        d_loss, d_real_loss, d_fake_loss = self.adversarial_discriminator_criterion(
+            self.discriminator(image),
+            self.discriminator(self.image_filled.detach())
+        )
+
+        output['g_loss/adversarial'] = g_adversarial_loss
+        output['g_loss'] = g_loss
+        output['d_loss/real'] = d_real_loss
+        output['d_loss/fake'] = d_fake_loss
+        output['d_loss'] = d_loss
+
+    def configure_optimizers(self):
+        lr = self.hparams.lr
+        b1 = self.hparams.b1
+        b2 = self.hparams.b2
+
+        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr, betas=(b1, b2))
+        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
+        return [opt_g, opt_d], []
 
 
 if __name__ == '__main__':
@@ -235,19 +277,24 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = False
 
     model_name = 'bilinear'
+    adversarial_type = 'none'
     args = {
         'batch_size': 16,
         'lr': 0.0001,
         'b1': 0.5,
         'b2': 0.999,
-        'pixel_loss_weight': 1.0,
-        'content_loss_weight': 0.0,
-        'style_loss_weight': 0.0,
+        'pixel_loss_weight': 0.5,
+        'content_loss_weight': 0.02,
+        'style_loss_weight': 1000.0,
         'tv_loss_weight': 0.0,
-        'adversarial_type': 'dcgan'
+        'adversarial_type': adversarial_type
     }
     hparams = Namespace(**args)
-    model = GAN(hparams)
+
+    if adversarial_type == 'none':
+        model = InpaintingTrainer(GatingConvolutionUNet(), hparams)
+    else:
+        model = InpaintingAdversarialTrainer(GatingConvolutionAutoencoder(), Discriminator(), hparams)
 
     trainer = pl.Trainer(default_save_path=f'models', gpus=1, use_amp=True,
                          # train_percent_check=0.01,

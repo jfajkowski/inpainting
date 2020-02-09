@@ -116,10 +116,10 @@ class GatingConvolution(nn.Module):
         if self.mode == 'up':
             image_in1 = F.interpolate(image_in1, scale_factor=2, mode='bilinear')
 
-        if image_in2:
-            image_in = torch.cat([image_in1, image_in2], dim=1)
-        else:
+        if image_in2 is None:
             image_in = image_in1
+        else:
+            image_in = torch.cat([image_in1, image_in2], dim=1)
 
         gating_x = self.gating_conv(image_in)
         feature_x = self.feature_conv(image_in)
