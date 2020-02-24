@@ -13,17 +13,17 @@ from inpainting.load import ImageDataset, FileMaskDataset, InpaintingImageDatase
 from inpainting.loss import ReconstructionLoss, AdversarialGeneratorCriterion, AdversarialDiscriminatorCriterion
 from inpainting.metrics import PSNR, MAE, MSE
 from inpainting.model_discriminator import Discriminator
-from inpainting.model_generator import GatingConvolutionAutoencoder, GatingConvolutionUNet
+from inpainting.model_generator import GatingConvolutionUNet, GatingConvolutionAutoencoder
 from inpainting.utils import mask_tensor, denormalize, mean_and_std
 
 
-class InpaintingTrainer(pl.LightningModule):
+class InpaintingModel(pl.LightningModule):
 
-    def __init__(self, generator, hparams):
-        super(InpaintingTrainer, self).__init__()
+    def __init__(self, hparams):
+        super(InpaintingModel, self).__init__()
         self.hparams = hparams
 
-        self.generator = generator
+        self.generator = GatingConvolutionAutoencoder()
 
         self.reconstruction_criterion = ReconstructionLoss(
             self.hparams.pixel_loss_weight,
@@ -173,14 +173,12 @@ class InpaintingTrainer(pl.LightningModule):
         return data_loader
 
     def on_after_backward(self):
-        if self.trainer.global_step % 1000 == 0:
+        if self.trainer.global_step % 50 == 0:
             for name, weight in self.generator.named_parameters():
                 if torch.isfinite(weight.grad).any():
                     self.logger.experiment.add_histogram(f'g_{name}/weight', weight, self.trainer.global_step)
                     self.logger.experiment.add_histogram(f'g_{name}/gradient', weight.grad, self.trainer.global_step)
 
-    def on_before_zero_grad(self, optimizer):
-        if self.trainer.global_step % 1000 == 0:
             if not self.example:
                 self.example = next(iter(self.val_dataloader()[0]))
 
@@ -196,12 +194,12 @@ class InpaintingTrainer(pl.LightningModule):
             self.logger.experiment.add_images(f'image_filled', denormalize(image_filled), self.current_epoch)
 
 
-class InpaintingAdversarialTrainer(InpaintingTrainer):
+class InpaintingAdversarialModel(InpaintingModel):
 
-    def __init__(self, generator, discriminator, hparams):
-        super(InpaintingAdversarialTrainer, self).__init__(hparams, generator)
+    def __init__(self, hparams):
+        super(InpaintingAdversarialModel, self).__init__(hparams)
 
-        self.discriminator = discriminator
+        self.discriminator = Discriminator()
 
         self.adversarial_generator_criterion = AdversarialGeneratorCriterion(hparams.adversarial_type)
         self.adversarial_discriminator_criterion = AdversarialDiscriminatorCriterion(hparams.adversarial_type)
@@ -211,7 +209,7 @@ class InpaintingAdversarialTrainer(InpaintingTrainer):
         image, mask = batch
 
         if optimizer_idx == 0:
-            output = super(InpaintingAdversarialTrainer, self).training_step(*args, **kwargs)
+            output = super(InpaintingAdversarialModel, self).training_step(*args, **kwargs)
 
             g_adversarial_loss = self.adversarial_generator_criterion(self.image_filled)
             g_loss = (output['loss'] + g_adversarial_loss) / 2
@@ -244,7 +242,7 @@ class InpaintingAdversarialTrainer(InpaintingTrainer):
         batch = args[0]
         image, mask = batch
 
-        output = super(InpaintingAdversarialTrainer, self).validation_step(*args, **kwargs)
+        output = super(InpaintingAdversarialModel, self).validation_step(*args, **kwargs)
 
         g_adversarial_loss = self.adversarial_generator_criterion(self.discriminator(self.image_filled))
         g_loss = (output['g_loss'] + g_adversarial_loss) / 2
@@ -276,27 +274,27 @@ if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    model_name = 'bilinear'
+    model_name = 'new'
     adversarial_type = 'none'
     args = {
         'batch_size': 16,
-        'lr': 0.0001,
+        'lr': 0.0005,
         'b1': 0.5,
         'b2': 0.999,
-        'pixel_loss_weight': 0.5,
-        'content_loss_weight': 0.02,
-        'style_loss_weight': 1000.0,
+        'pixel_loss_weight': 1.0,
+        'content_loss_weight': 0.0,
+        'style_loss_weight': 0.0,
         'tv_loss_weight': 0.0,
         'adversarial_type': adversarial_type
     }
     hparams = Namespace(**args)
 
     if adversarial_type == 'none':
-        model = InpaintingTrainer(GatingConvolutionUNet(), hparams)
+        model = InpaintingModel(hparams)
     else:
-        model = InpaintingAdversarialTrainer(GatingConvolutionAutoencoder(), Discriminator(), hparams)
+        model = InpaintingAdversarialModel(hparams)
 
-    trainer = pl.Trainer(default_save_path=f'models', gpus=1, use_amp=True,
+    trainer = pl.Trainer(default_save_path=f'models/autoencoder', gpus=1, use_amp=True,
                          # train_percent_check=0.01,
                          # val_percent_check=0.001,
                          logger=MyLogger(model_name),

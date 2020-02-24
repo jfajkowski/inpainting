@@ -55,15 +55,15 @@ class GatingConvolutionAutoencoder(nn.Module):
         self.e_conv1 = GatingConvolution(4, 64, 7, mode='down', bn=False)
         self.e_conv2 = GatingConvolution(64, 128, 5, mode='down', bn=True)
         self.e_conv3 = GatingConvolution(128, 256, 3, mode='down', bn=True)
-        self.e_conv4 = GatingConvolution(256, 512, 3, mode='down', bn=True)
-        self.e_conv5 = GatingConvolution(512, 512, 3, mode='down', bn=True)
-        self.e_conv6 = GatingConvolution(512, 512, 3, mode='down', bn=True)
-        self.e_conv7 = GatingConvolution(512, 512, 3, mode='down', bn=True)
-
-        self.d_conv7 = GatingConvolution(512, 512, 3, mode='up', bn=True)
-        self.d_conv6 = GatingConvolution(512, 512, 3, mode='up', bn=True)
-        self.d_conv5 = GatingConvolution(512, 512, 3, mode='up', bn=True)
-        self.d_conv4 = GatingConvolution(512, 256, 3, mode='up', bn=True)
+        # self.e_conv4 = GatingConvolution(256, 512, 3, mode='down', bn=True)
+        # self.e_conv5 = GatingConvolution(512, 512, 3, mode='down', bn=True)
+        # self.e_conv6 = GatingConvolution(512, 512, 3, mode='down', bn=True)
+        # self.e_conv7 = GatingConvolution(512, 512, 3, mode='down', bn=True)
+        #
+        # self.d_conv7 = GatingConvolution(512, 512, 3, mode='up', bn=True)
+        # self.d_conv6 = GatingConvolution(512, 512, 3, mode='up', bn=True)
+        # self.d_conv5 = GatingConvolution(512, 512, 3, mode='up', bn=True)
+        # self.d_conv4 = GatingConvolution(512, 256, 3, mode='up', bn=True)
         self.d_conv3 = GatingConvolution(256, 128, 3, mode='up', bn=True)
         self.d_conv2 = GatingConvolution(128, 64, 3, mode='up', bn=True)
         self.d_conv1 = GatingConvolution(64, 3, 3, mode='up', bn=False)
@@ -73,20 +73,20 @@ class GatingConvolutionAutoencoder(nn.Module):
     def forward(self, image_in, mask_in):
         x = torch.cat([image_in, mask_in], 1)
         e_image_out1 = self.e_conv1(x)
-        e_image_out2 = self.e_conv2(e_image_out1)
-        e_image_out3 = self.e_conv3(e_image_out2)
-        e_image_out4 = self.e_conv4(e_image_out3)
-        e_image_out5 = self.e_conv5(e_image_out4)
-        e_image_out6 = self.e_conv6(e_image_out5)
-        e_image_out7 = self.e_conv7(e_image_out6)
-
-        d_image_out7 = self.d_conv7(e_image_out7)
-        d_image_out6 = self.d_conv6(d_image_out7)
-        d_image_out5 = self.d_conv5(d_image_out6)
-        d_image_out4 = self.d_conv4(d_image_out5)
-        d_image_out3 = self.d_conv3(d_image_out4)
-        d_image_out2 = self.d_conv2(d_image_out3)
-        d_image_out1 = self.d_conv1(d_image_out2)
+        # e_image_out2 = self.e_conv2(e_image_out1)
+        # e_image_out3 = self.e_conv3(e_image_out2)
+        # e_image_out4 = self.e_conv4(e_image_out3)
+        # e_image_out5 = self.e_conv5(e_image_out4)
+        # e_image_out6 = self.e_conv6(e_image_out5)
+        # e_image_out7 = self.e_conv7(e_image_out6)
+        #
+        # d_image_out7 = self.d_conv7(e_image_out7)
+        # d_image_out6 = self.d_conv6(d_image_out7)
+        # d_image_out5 = self.d_conv5(d_image_out6)
+        # d_image_out4 = self.d_conv4(d_image_out5)
+        # d_image_out3 = self.d_conv3(e_image_out3)
+        # d_image_out2 = self.d_conv2(d_image_out3)
+        d_image_out1 = self.d_conv1(e_image_out1)
 
         return torch.tanh(self.out(d_image_out1))
 
@@ -114,7 +114,7 @@ class GatingConvolution(nn.Module):
 
     def forward(self, image_in1, image_in2=None):
         if self.mode == 'up':
-            image_in1 = F.interpolate(image_in1, scale_factor=2, mode='bilinear')
+            image_in1 = F.interpolate(image_in1, scale_factor=2)
 
         if image_in2 is None:
             image_in = image_in1

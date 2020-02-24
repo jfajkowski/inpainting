@@ -5,7 +5,7 @@ import time
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
-from scripts.train_baseline import Baseline
+from scripts.train import InpaintingModel
 from torch.utils.data.dataloader import DataLoader
 from torchvision.transforms.functional import to_pil_image
 
@@ -47,7 +47,7 @@ with torch.no_grad():
     flow_model = Network('models/pwcnet/network-default.pytorch').cuda().eval()
     # inpainting_algorithm = FlowInpaintingAlgorithm(flow_model)
 
-    fill_model = Baseline.load_from_checkpoint(
+    fill_model = InpaintingModel.load_from_checkpoint(
         'models/baseline_unet/version_0/checkpoints/_ckpt_epoch_96.ckpt').generator.cuda().eval()
     # inpainting_algorithm = FillInpaintingAlgorithm(fill_model)
 

@@ -7,6 +7,5 @@ setup(
     author='',
     author_email='',
     description='',
-    packages=find_packages(),
-    install_requires=['scikit-image']
+    packages=find_packages()
 )

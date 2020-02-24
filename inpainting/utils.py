@@ -15,19 +15,19 @@ def mask_tensor(x, m):
 
 def normalize(x, mode='standard'):
     mean, std = mean_and_std(mode)
-    y = x.new(*x.size())
-    y[:, 0, :, :] = (x[:, 0, :, :] - mean[0]) / std[0]
-    y[:, 1, :, :] = (x[:, 1, :, :] - mean[1]) / std[1]
-    y[:, 2, :, :] = (x[:, 2, :, :] - mean[2]) / std[2]
+    y = x.clone()
+    y[:, 0, :, :] = (y[:, 0, :, :] - mean[0]) / std[0]
+    y[:, 1, :, :] = (y[:, 1, :, :] - mean[1]) / std[1]
+    y[:, 2, :, :] = (y[:, 2, :, :] - mean[2]) / std[2]
     return y
 
 
 def denormalize(y, mode='standard'):
     mean, std = mean_and_std(mode)
-    x = y.new(*y.size())
-    x[:, 0, :, :] = y[:, 0, :, :] * std[0] + mean[0]
-    x[:, 1, :, :] = y[:, 1, :, :] * std[1] + mean[1]
-    x[:, 2, :, :] = y[:, 2, :, :] * std[2] + mean[2]
+    x = y.clone()
+    x[:, 0, :, :] = x[:, 0, :, :] * std[0] + mean[0]
+    x[:, 1, :, :] = x[:, 1, :, :] * std[1] + mean[1]
+    x[:, 2, :, :] = x[:, 2, :, :] * std[2] + mean[2]
     return torch.clamp(x, 0, 1)
 
 

@@ -7,7 +7,7 @@ from pkg_resources import parse_version
 from pytorch_lightning.logging import TensorBoardLogger, rank_zero_only
 from torch.utils.tensorboard import SummaryWriter
 
-model_path = 'models'
+model_path = 'models/autoencoder'
 
 
 class MyLogger(TensorBoardLogger):

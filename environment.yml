@@ -8,19 +8,18 @@ dependencies:
   - pandas
   - scikit-learn
   - scikit-image
-  - cuda100
+  - cudatoolkit
+  - torchvision
   - pytorch
-  - torchvision=0.4.2
+  - ignite
   - matplotlib
   - jupyter
   - pip
   - nvidia-apex
-  - pyyaml
   - opencv
   - tensorboard
-  - pillow=6.2.0
+  - pillow
   - pip:
       - -e .
       - flowiz
-      - cupy-cuda101
-      - pytorch_lightning
+      - cupy-cuda102

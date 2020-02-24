@@ -3,7 +3,7 @@ import time
 import cv2 as cv
 import numpy as np
 import torch
-from scripts.train_baseline import Baseline
+from scripts.train import InpaintingModel
 from torchvision.transforms.functional import to_tensor
 
 from inpainting.inpainting import FlowAndFillInpaintingAlgorithm
@@ -31,10 +31,10 @@ print(f'Resolution: {set_res(cap, 320, 240)}')
 
 mask = to_tensor(next(iter(RectangleMaskDataset(256, 256, (128 - 32, 128 - 32, 64, 64))))).unsqueeze(0).float().cuda()
 
-flow_model = Network('models/pwcnet/network-default.pytorch').cuda().eval()
+flow_model = Network('models/flow_models/pwcnet/network-default.pytorch').cuda().eval()
 # inpainting_algorithm = FlowInpaintingAlgorithm(flow_model)
 
-fill_model = Baseline.load_from_checkpoint(
+fill_model = InpaintingModel.load_from_checkpoint(
     'models/baseline_unet/version_0/checkpoints/_ckpt_epoch_96.ckpt').generator.cuda().eval()
 # inpainting_algorithm = FillInpaintingAlgorithm(fill_model)
 
