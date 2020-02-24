@@ -1,3 +1,5 @@
+import time
+
 import torch
 import torch.nn as nn
 from PIL import Image
@@ -131,11 +133,11 @@ mask_transforms = transforms.Compose([
     transforms.ToTensor()
 ])
 image_dataset = ImageDataset(['data/raw/image/SmallPlaces2/data_large'], transform=image_transforms)
-mask_dataset = FileMaskDataset('data/raw/mask/qd_imd/train', transform=mask_transforms)
+mask_dataset = FileMaskDataset('data/raw/mask/demo', transform=mask_transforms)
 dataset = InpaintingImageDataset(image_dataset, mask_dataset)
 data_loader = DataLoader(dataset, batch_size=16, shuffle=False)
 
-model = Network().cuda()
+model = SlimNetwork().cuda()
 print(sum(p.numel() for p in model.parameters()))
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 model, optimizer = amp.initialize(model, optimizer, loss_scale=128)
@@ -144,6 +146,7 @@ metric = PSNR(1)
 
 image, image_masked, image_filled = None, None, None
 for e in range(1000):
+    start = time.perf_counter()
     image, mask = next(iter(data_loader))
     image, mask = image.cuda(), mask.cuda()
 
@@ -159,7 +162,7 @@ for e in range(1000):
 
     accuracy = metric(denormalize(image), denormalize(image_filled))
 
-    print(f'Epoch: {e} Loss: {loss} Accuracy: {accuracy}')
+    print(f'Epoch: {e} Loss: {loss} Accuracy: {accuracy} Time: {time.perf_counter() - start}')
 
 save_image(denormalize(image), 'results/image.png')
 save_image(denormalize(image_masked), 'results/image_masked.png')
