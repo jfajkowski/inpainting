@@ -1,6 +1,6 @@
 import torch
 
-from inpainting.pwcnet.correlation import correlation
+from inpainting.external.flow_models.pwcnet.correlation import correlation
 
 ##########################################################
 

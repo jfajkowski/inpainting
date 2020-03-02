@@ -1,4 +1,4 @@
-from inpainting.deepfillv2.network_module import *
+from inpainting.external.fill_models.deepfillv2.network_module import *
 
 
 # -----------------------------------------------

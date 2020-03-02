@@ -1,6 +1,6 @@
 import torch
 
-from inpainting.liteflownet.correlation import correlation
+from inpainting.external.flow_models.liteflownet.correlation import correlation
 
 Backward_tensorGrid = {}
 

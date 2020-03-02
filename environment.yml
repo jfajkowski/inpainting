@@ -22,4 +22,5 @@ dependencies:
   - pip:
       - -e .
       - flowiz
-      - cupy-cuda102
+      - cupy-cuda101
+      - pytorch-lightning

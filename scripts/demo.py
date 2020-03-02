@@ -8,7 +8,7 @@ from torchvision.transforms.functional import to_tensor
 
 from inpainting.inpainting import FlowAndFillInpaintingAlgorithm
 from inpainting.load import RectangleMaskDataset
-from inpainting.pwcnet import Network
+from inpainting.external.flow_models.pwcnet import Network
 
 
 def set_res(cap, x, y):

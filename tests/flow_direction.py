@@ -3,7 +3,7 @@ from flowiz import convert_from_flow
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
 from inpainting.flow import estimate_flow, warp_tensor
-from inpainting.liteflownet import Network
+from inpainting.external.flow_models import Network
 
 background = Image.open('background.png').resize((512, 512)).convert('RGB')
 foreground = Image.open('foreground.png').resize((256, 256))

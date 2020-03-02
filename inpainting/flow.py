@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from PIL import Image
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
-from inpainting.liteflownet.model import Network
+from inpainting.external.flow_models.liteflownet import Network
 from inpainting.region_fill import regionfill
 from inpainting.visualize import flow_to_pil_image
 

@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from inpainting.evaluate import evaluate_video
 from inpainting.inpainting import FillInpaintingAlgorithm, FlowInpaintingAlgorithm
-from inpainting.liteflownet import Network
+from inpainting.external.flow_models import Network
 from inpainting.load import StaticMaskVideoDataset, VideoDataset, RectangleMaskDataset, FileMaskDataset, \
     DynamicMaskVideoDataset
 from inpainting.model_generator import GatingConvolutionUNet

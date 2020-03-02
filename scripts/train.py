@@ -23,7 +23,7 @@ class InpaintingModel(pl.LightningModule):
         super(InpaintingModel, self).__init__()
         self.hparams = hparams
 
-        self.generator = GatingConvolutionAutoencoder()
+        self.generator = GatingConvolutionUNet()
 
         self.reconstruction_criterion = ReconstructionLoss(
             self.hparams.pixel_loss_weight,
