@@ -13,7 +13,7 @@ from inpainting.models.gated import GatedModel
 from inpainting.utils import mean_and_std, mask_tensor
 
 size = (256, 256)
-epochs = 100
+epochs = 1
 batch_size = 16
 
 image_transforms = transforms.Compose([
