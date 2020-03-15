@@ -1,5 +1,5 @@
 import torch
-
+import numpy as np
 
 # generates superresolution mask
 # mask = np.zeros((32, 32))
@@ -7,6 +7,14 @@ import torch
 #     for y in range(32):
 #         if (x + y) % 2 == 0:
 #             mask[x, y] = 255
+
+
+def tensor_to_cv_image(image_tensor: torch.Tensor):
+    return image_tensor.flip(0).permute(1, 2, 0).numpy().astype(np.uint8)
+
+
+def cv_image_to_tensor(mat: np.ndarray):
+    return torch.from_numpy(mat).permute(2, 0, 1).flip(0).float()
 
 
 def mask_tensor(x, m):

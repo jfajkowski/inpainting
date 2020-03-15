@@ -6,40 +6,9 @@ import torch.nn.functional as F
 from PIL import Image
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
-from inpainting.external.flow_models.liteflownet import Network
+from inpainting.external.models import LiteFlowNetModel
 from inpainting.region_fill import regionfill
 from inpainting.visualize import flow_to_pil_image
-
-
-def estimate_flow(model, x_1, x_2):
-    assert (x_1.size(2) == x_2.size(2))
-    assert (x_1.size(3) == x_2.size(3))
-
-    height = x_1.size(2)
-    width = x_1.size(3)
-
-    preprocessed_width = int(math.floor(math.ceil(width / 64.0) * 64.0))
-    preprocessed_height = int(math.floor(math.ceil(height / 64.0) * 64.0))
-
-    # Convert to BGR
-    x_1 = x_1.flip(1)
-    x_2 = x_2.flip(1)
-
-    tensor_preprocessed_first = torch.nn.functional.interpolate(input=x_1,
-                                                                size=(preprocessed_height, preprocessed_width),
-                                                                mode='bilinear', align_corners=False)
-    tensor_preprocessed_second = torch.nn.functional.interpolate(input=x_2,
-                                                                 size=(preprocessed_height, preprocessed_width),
-                                                                 mode='bilinear', align_corners=False)
-
-    flow = torch.nn.functional.interpolate(
-        input=model(tensor_preprocessed_first, tensor_preprocessed_second), size=(height, width),
-        mode='bilinear', align_corners=False)
-
-    flow[:, 0, :, :] *= float(width) / float(preprocessed_width)
-    flow[:, 1, :, :] *= float(height) / float(preprocessed_height)
-
-    return flow
 
 
 def warp_tensor(x, flow, mode='bilinear', padding_mode='zeros'):
@@ -80,25 +49,25 @@ def fill_flow(flow, mask):
 
 if __name__ == '__main__':
     with torch.no_grad():
-        image_first = Image.open('data/raw/video/DAVIS/JPEGImages/480p/rollerblade/00000.jpg')
-        image_second = Image.open('data/raw/video/DAVIS/JPEGImages/480p/rollerblade/00001.jpg')
-        image_third = Image.open('data/raw/video/DAVIS/JPEGImages/480p/rollerblade/00002.jpg')
+        image_first = Image.open('data/raw/video/DAVIS/JPEGImages/480p/rollerblade/00000.jpg').resize((256, 256))
+        image_second = Image.open('data/raw/video/DAVIS/JPEGImages/480p/rollerblade/00001.jpg').resize((256, 256))
+        image_third = Image.open('data/raw/video/DAVIS/JPEGImages/480p/rollerblade/00002.jpg').resize((256, 256))
 
         tensor_first = to_tensor(image_first).unsqueeze(0).cuda()
         tensor_second = to_tensor(image_second).unsqueeze(0).cuda()
         tensor_third = to_tensor(image_third).unsqueeze(0).cuda()
 
-        model = Network('models/liteflownet/network-default.pytorch').cuda().eval()
+        model = LiteFlowNetModel().cuda().eval()
 
-        tensor_flow = estimate_flow(model, tensor_second, tensor_first)
+        tensor_flow = model(tensor_second, tensor_first)
         tensor_warp = warp_tensor(tensor_first, tensor_flow)
         image_forward_flow = flow_to_pil_image(tensor_flow.squeeze().cpu())
         image_forward_warp = to_pil_image(tensor_warp.squeeze().cpu())
 
-        tensor_flow = estimate_flow(model, tensor_second, tensor_second)
+        tensor_flow = model(tensor_second, tensor_second)
         image_no_flow = flow_to_pil_image(tensor_flow.squeeze().cpu())
 
-        tensor_flow = estimate_flow(model, tensor_second, tensor_third)
+        tensor_flow = model(tensor_second, tensor_third)
         tensor_warp = warp_tensor(tensor_third, tensor_flow)
         image_backward_flow = flow_to_pil_image(tensor_flow.squeeze().cpu())
         image_backward_warp = to_pil_image(tensor_warp.squeeze().cpu())

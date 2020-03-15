@@ -7,8 +7,8 @@ from PIL import Image
 from torch.utils.data.dataloader import DataLoader
 from torchvision.transforms.functional import to_pil_image
 
-from inpainting.external.flow_models.liteflownet import Network
-from inpainting.inpainting import FlowAndFillInpaintingAlgorithm
+from inpainting.external.models import DeepFillV1Model, FlowNet2Model, LiteFlowNetModel
+from inpainting.algorithm import FlowAndFillInpaintingAlgorithm, FillInpaintingAlgorithm, FlowInpaintingAlgorithm
 from inpainting.load import VideoDataset, DynamicMaskVideoDataset
 from inpainting.visualize import animate_sequence
 from scripts.train import InpaintingModel
@@ -42,12 +42,11 @@ dataset = DynamicMaskVideoDataset(frame_dataset, mask_dataset)
 data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
 with torch.no_grad():
-    flow_model = Network('models/external/flow_models/liteflownet/network-default.pytorch').cuda().eval()
-    # inpainting_algorithm = FlowInpaintingAlgorithm(flow_model)
+    flow_model = LiteFlowNetModel().cuda().eval()
+    # inpainting_algorithm = FlowInpaintingAlgorithm(flownet2)
 
-    fill_model = InpaintingModel.load_from_checkpoint(
-        'models/baseline/version_0/checkpoints/_ckpt_epoch_96.ckpt').generator.cuda().eval()
-    # inpainting_algorithm = FillInpaintingAlgorithm(fill_model)
+    fill_model = DeepFillV1Model().cuda().eval()
+    # inpainting_algorithm = FillInpaintingAlgorithm(deepfillv1)
 
     inpainting_algorithm = FlowAndFillInpaintingAlgorithm(flow_model, fill_model)
 

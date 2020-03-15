@@ -3,12 +3,14 @@ import time
 import cv2 as cv
 import numpy as np
 import torch
+
+from inpainting.external.models import LiteFlowNetModel, FlowNet2Model, DeepFillV1Model
+from inpainting.utils import cv_image_to_tensor, tensor_to_cv_image
 from scripts.train import InpaintingModel
 from torchvision.transforms.functional import to_tensor
 
-from inpainting.inpainting import FlowAndFillInpaintingAlgorithm
+from inpainting.algorithm import FlowAndFillInpaintingAlgorithm
 from inpainting.load import RectangleMaskDataset
-from inpainting.external.flow_models.pwcnet import Network
 
 
 def set_res(cap, x, y):
@@ -17,26 +19,16 @@ def set_res(cap, x, y):
     return str(cap.get(cv.CAP_PROP_FRAME_WIDTH)), str(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
 
 
-
-def tensor_to_cv_image(image_tensor: torch.Tensor):
-    return image_tensor.flip(0).permute(1, 2, 0).numpy().astype(np.uint8)
-
-
-def cv_image_to_tensor(mat: np.ndarray):
-    return torch.from_numpy(mat).permute(2, 0, 1).flip(0).float()
-
-
 cap = cv.VideoCapture(0)
 print(f'Resolution: {set_res(cap, 320, 240)}')
 
 mask = to_tensor(next(iter(RectangleMaskDataset(256, 256, (128 - 32, 128 - 32, 64, 64))))).unsqueeze(0).float().cuda()
 
-flow_model = Network('models/flow_models/pwcnet/network-default.pytorch').cuda().eval()
-# inpainting_algorithm = FlowInpaintingAlgorithm(flow_model)
+flow_model = FlowNet2Model().cuda().eval()
+# inpainting_algorithm = FlowInpaintingAlgorithm(flownet2)
 
-fill_model = InpaintingModel.load_from_checkpoint(
-    'models/baseline_unet/version_0/checkpoints/_ckpt_epoch_96.ckpt').generator.cuda().eval()
-# inpainting_algorithm = FillInpaintingAlgorithm(fill_model)
+fill_model = DeepFillV1Model().cuda().eval()
+# inpainting_algorithm = FillInpaintingAlgorithm(deepfillv1)
 
 inpainting_algorithm = FlowAndFillInpaintingAlgorithm(flow_model, fill_model)
 

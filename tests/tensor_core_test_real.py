@@ -1,6 +1,5 @@
 import argparse
 import glob
-import time
 
 import torch
 import torchvision.transforms as transforms
@@ -8,8 +7,8 @@ from PIL import Image
 from apex.amp import amp
 from torch.utils.data.dataloader import DataLoader
 
-from inpainting.external.flow_models.liteflownet import Network
-from inpainting.inpainting import FlowAndFillInpaintingAlgorithm
+from inpainting.external.liteflownet import Network
+from inpainting.algorithm import FlowAndFillInpaintingAlgorithm
 from inpainting.load import VideoDataset, DynamicMaskVideoDataset
 from scripts.train import InpaintingModel
 
@@ -39,7 +38,7 @@ dataset = DynamicMaskVideoDataset(frame_dataset, mask_dataset)
 data_loader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=False)
 
 with torch.no_grad():
-    flow_model = Network('models/external/flow_models/liteflownet/network-default.pytorch').cuda().eval()
+    flow_model = Network('models/external/flownet2/liteflownet/network-default.pytorch').cuda().eval()
     fill_model = InpaintingModel.load_from_checkpoint(
         'models/baseline/version_0/checkpoints/_ckpt_epoch_96.ckpt').generator.cuda().eval()
     flow_model, fill_model = amp.initialize([flow_model, fill_model], opt_level=opt.opt_level)
