@@ -9,7 +9,7 @@ from inpainting.utils import cv_image_to_tensor, tensor_to_cv_image
 from scripts.train import InpaintingModel
 from torchvision.transforms.functional import to_tensor
 
-from inpainting.algorithm import FlowAndFillInpaintingAlgorithm
+from inpainting.inpainting import FlowAndFillInpaintingAlgorithm
 from inpainting.load import RectangleMaskDataset
 
 

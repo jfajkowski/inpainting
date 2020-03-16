@@ -11,7 +11,7 @@ import torch
 from tqdm import tqdm
 
 from inpainting.evaluate import evaluate_video
-from inpainting.algorithm import FillInpaintingAlgorithm, FlowInpaintingAlgorithm
+from inpainting.inpainting import FillInpaintingAlgorithm, FlowInpaintingAlgorithm
 from inpainting.external.flow_models import Network
 from inpainting.load import StaticMaskVideoDataset, VideoDataset, RectangleMaskDataset, FileMaskDataset, \
     DynamicMaskVideoDataset

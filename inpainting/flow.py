@@ -14,7 +14,7 @@ from inpainting.visualize import flow_to_pil_image
 def warp_tensor(x, flow, mode='bilinear', padding_mode='zeros'):
     assert x.size()[-2:] == flow.size()[-2:]
     flow = normalize_flow(flow.clone())
-    grid = make_grid(x)
+    grid = make_grid(x.size())
     grid += 2 * flow
     grid = grid.permute(0, 2, 3, 1)
     return F.grid_sample(x, grid, mode=mode, padding_mode=padding_mode)
@@ -27,8 +27,8 @@ def normalize_flow(flow):
     return flow
 
 
-def make_grid(x, normalized=True):
-    _, _, h, w = x.size()
+def make_grid(size, normalized=True):
+    _, _, h, w = size
     x_ = torch.arange(w).view(1, -1).expand(h, -1)
     y_ = torch.arange(h).view(-1, 1).expand(-1, w)
     grid = torch.stack([x_, y_], dim=0).float().cuda()

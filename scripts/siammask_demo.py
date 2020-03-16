@@ -7,14 +7,14 @@ import glob
 
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
-from inpainting.algorithm import FlowAndFillInpaintingAlgorithm
+from inpainting.inpainting import FlowAndFillInpaintingAlgorithm
 from inpainting.external.models import SiamMaskModel, FlowNet2Model, DeepFillV1Model, LiteFlowNetModel
 from inpainting.external.siammask.test import *
 from inpainting.utils import cv_image_to_tensor, tensor_to_cv_image
 from inpainting.visualize import animate_sequence
 
 parser = argparse.ArgumentParser(description='PyTorch Tracking Demo')
-parser.add_argument('--base_path', default='data/raw/video/DAVIS/JPEGImages/480p/rollerblade', help='datasets')
+parser.add_argument('--base_path', default='data/raw/video/DAVIS/JPEGImages/480p/tennis', help='datasets')
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -24,7 +24,7 @@ if __name__ == '__main__':
     # Parse Image file
     img_files = sorted(glob.glob(join(args.base_path, '*.jp*')))
     ims = [cv2.imread(imf) for imf in img_files]
-    ims = list(map(lambda x: cv2.resize(x, (256, 256)), ims))
+    ims = list(map(lambda x: cv2.resize(x, (768, 512)), ims))
 
     # Select ROI
     cv2.namedWindow("SiamMask", cv2.WND_PROP_FULLSCREEN)
@@ -44,7 +44,7 @@ if __name__ == '__main__':
             tic = cv2.getTickCount()
             if f == 0:  # init
                 model = SiamMaskModel(im, init_rect).cuda().eval()
-                flow_model = LiteFlowNetModel().cuda().eval()
+                flow_model = FlowNet2Model().cuda().eval()
                 fill_model = DeepFillV1Model().cuda().eval()
                 inpainting_algorithm = FlowAndFillInpaintingAlgorithm(flow_model, fill_model)
             elif f > 0:  # tracking

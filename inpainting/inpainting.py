@@ -7,7 +7,7 @@ from skimage import io
 from torchvision.transforms.functional import to_tensor, to_pil_image, resize
 
 from inpainting.external.models import DeepFillV1Model
-from inpainting.flow import fill_flow, warp_tensor
+from inpainting.flow import fill_flow, warp_tensor, make_grid
 from inpainting.utils import mask_tensor, normalize, denormalize
 from inpainting.visualize import debug
 
@@ -66,9 +66,10 @@ class FlowInpaintingAlgorithm(VideoInpaintingAlgorithm):
         backward_flow_masked = mask_tensor(backward_flow, current_mask)
         backward_flow_filled = fill_flow(backward_flow_masked, current_mask)
 
-        flow_propagation_error = warp_tensor(
-            (warp_tensor(forward_flow_filled, backward_flow_filled, mode='nearest') + backward_flow_filled) / 2,
-            forward_flow_filled, mode='nearest')
+        grid = make_grid(forward_flow.size(), normalized=False)
+        backward_grid = warp_tensor(grid, backward_flow, mode='nearest')
+        forward_grid = warp_tensor(backward_grid, forward_flow, mode='nearest')
+        flow_propagation_error = forward_grid - grid
         connected_pixels_mask = (torch.norm(flow_propagation_error, 2, dim=1) < self.eps).float().unsqueeze(1)
 
         current_mask_warped = warp_tensor(connected_pixels_mask * self.previous_mask_result, backward_flow_filled,

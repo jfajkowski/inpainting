@@ -2,11 +2,11 @@ from PIL import Image
 from flowiz import convert_from_flow
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
-from inpainting.flow import estimate_flow, warp_tensor
-from inpainting.external.flow_models import Network
+from inpainting.external.models import FlowNet2Model
+from inpainting.flow import warp_tensor, make_grid
 
-background = Image.open('background.png').resize((512, 512)).convert('RGB')
-foreground = Image.open('foreground.png').resize((256, 256))
+background = Image.open('data/raw/image/chair/background.png').resize((512, 512)).convert('RGB')
+foreground = Image.open('data/raw/image/chair/foreground.png').resize((256, 256))
 
 background_center_x, background_center_y = int(background.size[0] / 2), int(background.size[1] / 2)
 foreground_center_x, foreground_center_y = int(foreground.size[0] / 2), int(foreground.size[1] / 2)
@@ -15,7 +15,7 @@ center_point = (background_center_x - foreground_center_x, background_center_y -
 center = background.copy()
 center.paste(foreground, center_point, foreground)
 
-model = Network('../models/liteflownet/network-default.pytorch').cuda().eval()
+model = FlowNet2Model().cuda().eval()
 
 
 def move(x, y):
@@ -26,7 +26,7 @@ def move(x, y):
 
 
 def generate_flow(first, second):
-    return estimate_flow(model, to_tensor(first).unsqueeze(0).cuda(), to_tensor(second).unsqueeze(0).cuda()).squeeze(0)
+    return model(to_tensor(first).unsqueeze(0).cuda(), to_tensor(second).unsqueeze(0).cuda()).squeeze(0)
 
 
 def save_flow(flow, name):
@@ -56,7 +56,7 @@ def save_warp(warp, name):
 #     save_warp(warp, name + '_warp.png')
 
 
-center.save('0_center.png')
+center.save('results/0_center.png')
 # debug(-100, 0, 'left')
 # debug(100, 0, 'right')
 # debug(0, 100, 'up')
@@ -64,12 +64,24 @@ center.save('0_center.png')
 
 
 shifted = move(100, 0)
-shifted.save('1_shifted.png')
+shifted.save('results/1_shifted.png')
 
 forward_flow = generate_flow(center, shifted)
-save_flow(forward_flow, '2_forward_flow.png')
+save_flow(forward_flow, 'results/2_forward_flow.png')
 
 backward_flow = generate_flow(shifted, center)
-save_flow(backward_flow, '2_backward_flow.png')
+save_flow(backward_flow, 'results/2_backward_flow.png')
 
-to_pil_image(warp_tensor(to_tensor(center).unsqueeze(0).cuda(), backward_flow.unsqueeze(0)).squeeze(0).cpu()).show()
+forward_flow = forward_flow.unsqueeze(0)
+backward_flow = backward_flow.unsqueeze(0)
+
+flow_propagation_error = warp_tensor(
+    (warp_tensor(forward_flow, backward_flow, mode='nearest') + backward_flow),
+    forward_flow, mode='nearest')
+save_flow(flow_propagation_error.squeeze(), 'results/3_flow_propagation_error.png')
+
+grid = make_grid(forward_flow.size(), normalized=False)
+backward_grid = warp_tensor(grid, backward_flow, mode='nearest')
+forward_grid = warp_tensor(backward_grid, forward_flow, mode='nearest')
+flow_propagation_error = forward_grid - grid
+save_flow(flow_propagation_error.squeeze(), 'results/4_flow_propagation_error.png')

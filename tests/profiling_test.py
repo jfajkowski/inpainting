@@ -7,7 +7,7 @@ from PIL import Image
 from torch.utils.data.dataloader import DataLoader
 
 from inpainting.external.liteflownet import Network
-from inpainting.algorithm import FlowAndFillInpaintingAlgorithm
+from inpainting.inpainting import FlowAndFillInpaintingAlgorithm
 from inpainting.load import VideoDataset, DynamicMaskVideoDataset
 from scripts.train import InpaintingModel
 

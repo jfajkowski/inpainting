@@ -8,7 +8,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as f
 
-from inpainting.external.liteflownet import Network
+import inpainting.external.liteflownet as liteflownet
+import inpainting.external.pwcnet as pwcnet
 from inpainting.external.deepfillv1 import DeepFill
 from inpainting.external.flownet2 import FlowNet2
 from inpainting.external.siammask.config_helper import load_config
@@ -48,7 +49,16 @@ class FlowNet2Model(nn.Module):
 class LiteFlowNetModel(nn.Module):
     def __init__(self):
         super().__init__()
-        self.model = Network('models/external/liteflownet/network-default.pytorch')
+        self.model = liteflownet.Network('models/external/liteflownet/network-default.pytorch')
+
+    def forward(self, image_1, image_2):
+        return estimate_flow(self.model, image_1, image_2)
+
+
+class PWCNetModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.model = pwcnet.Network('models/external/pwcnet/network-default.pytorch')
 
     def forward(self, image_1, image_2):
         return estimate_flow(self.model, image_1, image_2)

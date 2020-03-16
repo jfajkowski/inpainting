@@ -7,14 +7,14 @@ from PIL import Image
 from torch.utils.data.dataloader import DataLoader
 from torchvision.transforms.functional import to_pil_image
 
-from inpainting.external.models import DeepFillV1Model, FlowNet2Model, LiteFlowNetModel
-from inpainting.algorithm import FlowAndFillInpaintingAlgorithm, FillInpaintingAlgorithm, FlowInpaintingAlgorithm
+from inpainting.external.models import DeepFillV1Model, FlowNet2Model, LiteFlowNetModel, PWCNetModel
+from inpainting.inpainting import FlowAndFillInpaintingAlgorithm, FillInpaintingAlgorithm, FlowInpaintingAlgorithm
 from inpainting.load import VideoDataset, DynamicMaskVideoDataset
 from inpainting.visualize import animate_sequence
 from scripts.train import InpaintingModel
 
 batch_size = 1
-size = (256, 256)
+size = (512, 768)
 
 frame_dataset = VideoDataset(
     list(glob.glob('data/raw/video/DAVIS/JPEGImages/480p/flamingo')),
@@ -42,13 +42,13 @@ dataset = DynamicMaskVideoDataset(frame_dataset, mask_dataset)
 data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
 with torch.no_grad():
-    flow_model = LiteFlowNetModel().cuda().eval()
+    flow_model = FlowNet2Model().cuda().eval()
     # inpainting_algorithm = FlowInpaintingAlgorithm(flownet2)
 
     fill_model = DeepFillV1Model().cuda().eval()
     # inpainting_algorithm = FillInpaintingAlgorithm(deepfillv1)
 
-    inpainting_algorithm = FlowAndFillInpaintingAlgorithm(flow_model, fill_model)
+    inpainting_algorithm = FlowAndFillInpaintingAlgorithm(flow_model, fill_model, eps=10)
 
     for sample in iter(data_loader):
         frames, masks, _ = sample
@@ -69,4 +69,4 @@ with torch.no_grad():
                 # [to_pil_image(m[i], mode='L') for m in masks],
                 [to_pil_image(f[i], mode='RGB') for f in frames_filled],
                 # [to_pil_image(m[i], mode='L') for m in masks_filled]
-            ).save(f'{target_directory}/sequence.mp4', fps=24, dpi=300)
+            ).save(f'{target_directory}/sequence2.mp4', fps=24, dpi=300)
