@@ -1,4 +1,4 @@
-name: inpainting
+name: external
 channels:
   - pytorch
   - conda-forge

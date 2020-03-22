@@ -1,24 +1,27 @@
-import torch
+import cv2 as cv
 import numpy as np
-
-# generates superresolution mask
-# mask = np.zeros((32, 32))
-# for x in range(32):
-#     for y in range(32):
-#         if (x + y) % 2 == 0:
-#             mask[x, y] = 255
+import torch
 
 
-def tensor_to_cv_image(image_tensor: torch.Tensor):
-    return image_tensor.flip(0).permute(1, 2, 0).numpy().astype(np.uint8)
+def tensor_to_cv_image(image_tensor: torch.Tensor, rgb2bgr: bool = True):
+    mat = (image_tensor * 255).type(torch.uint8).permute(1, 2, 0).numpy()
+    if rgb2bgr:
+        mat = cv.cvtColor(mat, cv.COLOR_RGB2BGR)
+    return mat
 
 
-def cv_image_to_tensor(mat: np.ndarray):
-    return torch.from_numpy(mat).permute(2, 0, 1).flip(0).float()
+def cv_image_to_tensor(mat: np.ndarray, bgr2rgb: bool = True):
+    if bgr2rgb:
+        mat = cv.cvtColor(mat, cv.COLOR_BGR2RGB)
+    return torch.from_numpy(mat).float().permute(2, 0, 1) / 255
 
 
 def mask_tensor(x, m):
     return x * m
+
+
+def invert_mask(m):
+    return 1 - m
 
 
 def normalize(x, mode='standard'):

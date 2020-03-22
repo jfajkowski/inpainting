@@ -4,17 +4,17 @@ import os
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
+from inpainting.utils import tensor_to_cv_image
 from torch.utils.data.dataloader import DataLoader
 from torchvision.transforms.functional import to_pil_image
 
-from inpainting.external.models import DeepFillV1Model, FlowNet2Model, LiteFlowNetModel, PWCNetModel
-from inpainting.inpainting import FlowAndFillInpaintingAlgorithm, FillInpaintingAlgorithm, FlowInpaintingAlgorithm
+from inpainting.external.algorithms import DeepFlowGuidedVideoInpaintingAlgorithm, DeepVideoInpaintingAlgorithm
 from inpainting.load import VideoDataset, DynamicMaskVideoDataset
-from inpainting.visualize import animate_sequence
-from scripts.train import InpaintingModel
+from inpainting.visualize import animate_sequence, save_video
 
 batch_size = 1
-size = (512, 768)
+size = (512, 512)
+frame_rate = 24
 
 frame_dataset = VideoDataset(
     list(glob.glob('data/raw/video/DAVIS/JPEGImages/480p/flamingo')),
@@ -42,31 +42,25 @@ dataset = DynamicMaskVideoDataset(frame_dataset, mask_dataset)
 data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
 with torch.no_grad():
-    flow_model = FlowNet2Model().cuda().eval()
-    # inpainting_algorithm = FlowInpaintingAlgorithm(flownet2)
-
-    fill_model = DeepFillV1Model().cuda().eval()
-    # inpainting_algorithm = FillInpaintingAlgorithm(deepfillv1)
-
-    inpainting_algorithm = FlowAndFillInpaintingAlgorithm(flow_model, fill_model, eps=10)
+    inpainting_algorithm = DeepVideoInpaintingAlgorithm()
 
     for sample in iter(data_loader):
         frames, masks, _ = sample
         frames = list(map(lambda x: x.cuda(), frames))
         masks = list(map(lambda x: x.cuda(), masks))
         inpainting_algorithm.reset()
-        frames_filled, masks_filled = inpainting_algorithm.inpaint(frames, masks)
+        frames_filled = inpainting_algorithm.inpaint(frames, masks)
         frames_filled = list(map(lambda x: x.cpu(), frames_filled))
-        masks_filled = list(map(lambda x: x.cpu(), masks_filled))
 
         frames = list(map(lambda x: x.cpu(), frames))
         masks = list(map(lambda x: x.cpu(), masks))
         target_directory = 'results'
         os.makedirs(target_directory, exist_ok=True)
         for i in range(batch_size):
+            # save_video([tensor_to_cv_image(f[i]) for f in frames], f'{target_directory}/sequence.mp4', size, frame_rate)
             animate_sequence(
                 [to_pil_image(f[i], mode='RGB') for f in frames],
                 # [to_pil_image(m[i], mode='L') for m in masks],
                 [to_pil_image(f[i], mode='RGB') for f in frames_filled],
                 # [to_pil_image(m[i], mode='L') for m in masks_filled]
-            ).save(f'{target_directory}/sequence2.mp4', fps=24, dpi=300)
+            ).save(f'{target_directory}/sequence.mp4', fps=24, dpi=300)

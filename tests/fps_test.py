@@ -7,9 +7,9 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
 from inpainting.load import ImageDataset, FileMaskDataset, InpaintingImageDataset
-from inpainting.models.baseline import BaselineModel
-from inpainting.models.depthwise_separable import DepthwiseSeparableModel
-from inpainting.models.gated import GatedModel
+from inpainting.external.baseline import BaselineModel
+from inpainting.external.depthwise_separable import DepthwiseSeparableModel
+from inpainting.external.gated import GatedModel
 from inpainting.utils import mean_and_std, mask_tensor
 
 size = (256, 256)

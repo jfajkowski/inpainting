@@ -2,8 +2,8 @@ from PIL import Image
 from flowiz import convert_from_flow
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
-from inpainting.external.models import FlowNet2Model
-from inpainting.flow import warp_tensor, make_grid
+from inpainting.external.algorithms import FlowNet2Model
+from inpainting.external.deepflowguidedvideoinpainting.utils import warp_tensor, make_grid
 
 background = Image.open('data/raw/image/chair/background.png').resize((512, 512)).convert('RGB')
 foreground = Image.open('data/raw/image/chair/foreground.png').resize((256, 256))

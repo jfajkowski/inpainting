@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='inpainting',
+    name='external',
     version='1.0.0',
     url='',
     author='',

@@ -59,10 +59,10 @@ class RectangleMaskDataset(IterableDataset):
 
     @staticmethod
     def _create_mask(height, width, rectangle):
-        mask = np.ones((height, width, 1), dtype=np.uint8) * 255
+        mask = np.ones((height, width), dtype=np.uint8) * 255
         x, y, w, h = rectangle
         mask[y:y + h, x:x + w] = 0
-        return mask
+        return Image.fromarray(mask, mode='L')
 
     def __iter__(self):
         while True:

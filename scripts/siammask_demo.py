@@ -7,14 +7,13 @@ import glob
 
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
-from inpainting.inpainting import FlowAndFillInpaintingAlgorithm
-from inpainting.external.models import SiamMaskModel, FlowNet2Model, DeepFillV1Model, LiteFlowNetModel
+from inpainting.external.algorithms import DeepFlowGuidedVideoInpaintingAlgorithm, SiamMaskVideoSegmentationAlgorithm
 from inpainting.external.siammask.test import *
 from inpainting.utils import cv_image_to_tensor, tensor_to_cv_image
 from inpainting.visualize import animate_sequence
 
 parser = argparse.ArgumentParser(description='PyTorch Tracking Demo')
-parser.add_argument('--base_path', default='data/raw/video/DAVIS/JPEGImages/480p/tennis', help='datasets')
+parser.add_argument('--base_path', default='data/raw/video/DAVIS/JPEGImages/480p/flamingo', help='datasets')
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -32,7 +31,7 @@ if __name__ == '__main__':
 
     init_rect = cv2.selectROI('SiamMask', ims[0], False, False)
 
-    model = None
+    segmentation_algorithm = None
     inpainting_algorithm = None
     frames = []
     frames_filled = []
@@ -43,12 +42,10 @@ if __name__ == '__main__':
 
             tic = cv2.getTickCount()
             if f == 0:  # init
-                model = SiamMaskModel(im, init_rect).cuda().eval()
-                flow_model = FlowNet2Model().cuda().eval()
-                fill_model = DeepFillV1Model().cuda().eval()
-                inpainting_algorithm = FlowAndFillInpaintingAlgorithm(flow_model, fill_model)
-            elif f > 0:  # tracking
-                mask, location = model(im)
+                segmentation_algorithm = SiamMaskVideoSegmentationAlgorithm(im, init_rect)
+                inpainting_algorithm = DeepFlowGuidedVideoInpaintingAlgorithm()
+            elif f > 0:  # segmentation
+                mask = segmentation_algorithm.find_mask(im)
 
                 mask = 255 - mask.astype(np.uint8) * 255
                 def dilate(mask, kernel_size, iterations):

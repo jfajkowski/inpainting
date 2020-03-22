@@ -1,6 +1,8 @@
 import flowiz as fz
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import cv2 as cv
+import subprocess as sp
 
 from PIL import Image
 from torchvision.transforms.functional import to_pil_image
@@ -36,3 +38,11 @@ def animate_sequence(*args):
     ani = animation.ArtistAnimation(fig, images, interval=50, blit=True, repeat_delay=1000)
     plt.close()
     return ani
+
+
+def save_video(frames, path, size=(256, 256), frame_rate=24, codec=cv.VideoWriter_fourcc(*'H264')):
+    height, width = size
+    video = cv.VideoWriter(path, codec, frame_rate, (width, height))
+    for frame in frames:
+        video.write(frame)
+    video.release()

@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
 from inpainting.load import ImageDataset, FileMaskDataset, InpaintingImageDataset
-from inpainting.models.baseline import BaselineModel
+from inpainting.external.baseline import BaselineModel
 from inpainting.utils import mean_and_std, mask_tensor
 
 parser = argparse.ArgumentParser()
