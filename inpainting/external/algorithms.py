@@ -12,7 +12,7 @@ from inpainting.external.siammask.config_helper import load_config
 from inpainting.external.siammask.custom import Custom
 from inpainting.external.siammask.load_helper import load_pretrain
 from inpainting.external.siammask.test import siamese_init, siamese_track
-from inpainting.utils import mask_tensor, normalize, denormalize, invert_mask
+from inpainting.utils import mask_tensor, normalize, denormalize, invert_mask, tensor_to_cv_image
 from inpainting.visualize import debug
 
 
@@ -40,7 +40,7 @@ class DeepFlowGuidedVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
         self.previous_mask_result = None
         self.previous_frame_result = None
 
-    def reset(self):
+    def initialize(self):
         self.previous_available = False
         self.previous_mask = None
         self.previous_frame = None
@@ -48,6 +48,8 @@ class DeepFlowGuidedVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
         self.previous_frame_result = None
 
     def inpaint_online(self, current_frame: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
+        current_mask = invert_mask(current_mask)
+
         if not self.previous_available:
             self.previous_mask = current_mask
             self.previous_frame = current_frame
@@ -117,26 +119,31 @@ class DeepFlowGuidedVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
         return current_frame_result
 
 
-class SiamMaskVideoSegmentationAlgorithm:
-    def __init__(self, init_image, init_roi, device='cuda'):
+class SiamMaskVideoTrackingAlgorithm:
+    def __init__(self):
         super().__init__()
         args = Namespace(
             config='models/external/siammask/config_davis.json'
         )
-        cfg = load_config(args)
-        self.model = Custom(anchors=cfg['anchors']).cuda().eval()
+        self.cfg = load_config(args)
+        self.model = Custom(anchors=self.cfg['anchors']).cuda().eval()
         load_pretrain(self.model, 'models/external/siammask/SiamMask_DAVIS.pth')
+        self.state = None
+        self.device = 'cuda'
 
-        x, y, w, h = init_roi
-        target_pos = np.array([x + w / 2, y + h / 2])
+    def initialize(self, image, roi):
+        image = tensor_to_cv_image(image)
+        (x1, y1), (x2, y2) = roi
+        w, h = x2 - x1, y2 - y1
+        target_pos = np.array([x1 + w / 2, y1 + h / 2])
         target_sz = np.array([w, h])
-        self.state = siamese_init(init_image, target_pos, target_sz, self.model, cfg['hp'], device=device)
-        self.device = device
+        self.state = siamese_init(image, target_pos, target_sz, self.model, self.cfg['hp'], self.device)
 
     def find_mask(self, image):
+        image = tensor_to_cv_image(image)
         self.state = siamese_track(self.state, image, mask_enable=True, refine_enable=True, device=self.device)
         mask = self.state['mask'] > self.state['p'].seg_thr
-        return mask
+        return torch.tensor(mask).unsqueeze(0).float()
 
 
 class DeepVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
@@ -144,9 +151,9 @@ class DeepVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
         args = Namespace(
             model='vinet_final',
             no_cuda=False,
-            pretrain_path='models/external/vinet/save_agg_rec_512.pth',
+            pretrain_path='models/external/vinet/save_agg_rec.pth',
             double_size=True,
-            crop_size=512,
+            crop_size=False,
             search_range=4,
             batch_norm=False,
             prev_warp=True,
@@ -164,30 +171,29 @@ class DeepVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
         self.prev_mask = None
         self.prev_output = None
 
-    def reset(self):
+    def initialize(self):
         self.masks = []
         self.masked_frames = []
 
     def inpaint_online(self, current_frame: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
         current_frame = normalize(current_frame)
-        current_frame_masked = mask_tensor(current_frame, current_mask)
-        current_mask = invert_mask(current_mask)
+        current_frame_masked = mask_tensor(current_frame, invert_mask(current_mask))
 
         if not self.previous_available:
-            self.masks = 5 * [current_mask]
-            self.masked_frames = 5 * [current_frame_masked]
+            self.masks = (4 * self.t_stride + 1) * [current_mask]
+            self.masked_frames = (4 * self.t_stride + 1) * [current_frame_masked]
             self.ones = torch.ones(current_mask.size()).cuda()
             self.prev_mask = current_mask
             self.prev_output = current_frame_masked
             self.previous_available = True
-        elif self.t % self.t_stride == 0:
+        elif self.t:
             self.masks.pop(0)
-            self.masks.append(current_mask)
+            self.masks = self.masks[2 * self.t_stride:] + (2 * self.t_stride + 1) * [current_mask]
             self.masked_frames.pop(0)
-            self.masked_frames.append(current_frame_masked)
+            self.masked_frames = self.masked_frames[2 * self.t_stride:] + (2 * self.t_stride + 1) * [current_frame_masked]
 
-        masks = torch.stack(self.masks, dim=2)
-        masked_inputs = torch.stack(self.masked_frames, dim=2)
+        masks = torch.stack(self.masks[::self.t_stride], dim=2)
+        masked_inputs = torch.stack(self.masked_frames[::self.t_stride], dim=2)
         prev_feed = torch.cat([self.prev_output, self.ones, self.ones * self.prev_mask], dim=1)
 
         result, _, self.lstm_state, _, _ = self.model(masked_inputs, masks, self.lstm_state, prev_feed, self.t)
@@ -197,5 +203,9 @@ class DeepVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
 
         self.prev_mask = current_mask * 0.5
         self.prev_output = result
+
+        debug(current_frame, '0_current_frame', denormalize)
+        debug(current_mask, '0_current_mask')
+        debug(result, '1_result', denormalize)
 
         return denormalize(result)

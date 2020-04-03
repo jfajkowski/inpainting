@@ -1,9 +1,9 @@
 import glob
 
 import numpy as np
+from PIL import Image
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import IterableDataset
-from PIL import Image
 
 
 class InpaintingImageDataset(Dataset):
@@ -40,7 +40,7 @@ class ImageDataset(Dataset):
             self.considered_images += glob.glob(f'{image_dir}/**/*.jpg', recursive=True)
 
     def __getitem__(self, index: int):
-        image = _load_image(self.considered_images[index], 'image')
+        image = load_image(self.considered_images[index], 'image')
         if self.transform is not None:
             image = self.transform(image)
         return image
@@ -82,7 +82,7 @@ class FileMaskDataset(IterableDataset):
 
     def __iter__(self):
         while True:
-            mask = _load_image(next(self.mask_paths_generator), 'mask')
+            mask = load_image(next(self.mask_paths_generator), 'mask')
             if self.transform is not None:
                 mask = self.transform(mask)
             yield mask
@@ -105,8 +105,8 @@ class DynamicMaskVideoDataset(Dataset):
             raise ValueError('Lengths of frames dataset and masks dataset don\'t match')
 
     def __getitem__(self, index: int):
-        frames, frame_dir = self.frame_dataset.__getitem__(index)
-        masks, _ = self.mask_dataset.__getitem__(index)
+        frames = self.frame_dataset.__getitem__(index)
+        masks = self.mask_dataset.__getitem__(index)
         for i in range(len(frames)):
             frame = frames[i]
             mask = masks[i]
@@ -116,7 +116,7 @@ class DynamicMaskVideoDataset(Dataset):
             frames[i] = frame
             masks[i] = mask
 
-        return frames, masks, frame_dir
+        return frames, masks
 
     def __len__(self) -> int:
         return len(self.frame_dataset)
@@ -148,11 +148,41 @@ class StaticMaskVideoDataset(Dataset):
         return len(self.frame_dataset)
 
 
-def _load_image(image_path, image_type):
+class MergeDataset(Dataset):
+
+    def __init__(self, datasets, transform=None):
+        self.datasets = datasets
+        self.transform = transform
+
+    def __getitem__(self, index: int):
+        sample = [d[index] for d in self.datasets]
+        if self.transform is not None:
+            for i in range(len(sample)):
+                sample[i] = [self.transform(s) for s in sample[i]]
+        return tuple(sample)
+
+    def __len__(self) -> int:
+        return len(self.datasets[0])
+
+
+def load_image(image_path, image_type):
     if image_type == 'image':
         return Image.open(image_path).convert('RGB')
     elif image_type == 'mask':
         return Image.open(image_path).convert('L')
+    elif image_type == 'annotation':
+        return Image.open(image_path).convert('P')
+    else:
+        raise ValueError(image_type)
+
+
+def save_image(image, image_path, image_type):
+    if image_type == 'image':
+        return image.convert('RGB').save(image_path)
+    elif image_type == 'mask':
+        return image.convert('L').save(image_path)
+    elif image_type == 'annotation':
+        return image.convert('P').save(image_path)
     else:
         raise ValueError(image_type)
 
@@ -187,14 +217,56 @@ class VideoDataset(Dataset):
         frame_paths = sorted(glob.glob(f'{frame_dir}/*'))
         frame_paths = frame_paths[:self.sequence_length] if self.sequence_length else frame_paths
         for frame_path in frame_paths:
-            frame = _load_image(frame_path, self.frame_type)
+            frame = load_image(frame_path, self.frame_type)
             if self.transform is not None:
                 frame = self.transform(frame)
             frames.append(frame)
-        return frames, frame_dir
+        return frames
 
     def __len__(self) -> int:
         return len(self.considered_videos)
+
+
+class VideoObjectRemovalDataset(Dataset):
+
+    def __init__(self, images_dataset, masks_dataset, transform=None):
+        self.images_dataset = images_dataset
+        self.masks_dataset = masks_dataset
+        self.transform = transform
+        if len(self.images_dataset) != len(self.masks_dataset):
+            raise ValueError('Lengths of images dataset and masks dataset don\'t match')
+
+    def __getitem__(self, index: int):
+        b = index
+        f = len(self.images_dataset) - 1 - index
+
+        background_images = self.images_dataset[b]
+        foreground_images = self.images_dataset[f]
+        foreground_masks = self.masks_dataset[f]
+
+        input_images = VideoObjectRemovalDataset.paste_object_to_sequence(background_images, foreground_images,
+                                                                          foreground_masks)
+        masks = foreground_masks[:len(input_images)]
+        target_images = background_images[:len(input_images)]
+        if self.transform is not None:
+            input_images = [self.transform(i) for i in input_images]
+            masks = [self.transform(m) for m in masks]
+            target_images = [self.transform(t) for t in target_images]
+        return input_images, masks, target_images
+
+    @staticmethod
+    def paste_object_to_sequence(background_images, foreground_images, foreground_masks):
+        combined_images = []
+        for background_image, foreground_image, foreground_mask in zip(background_images, foreground_images,
+                                                                       foreground_masks):
+            assert foreground_image.size == background_image.size == foreground_mask.size
+            combined_image = background_image.copy()
+            combined_image.paste(foreground_image, mask=foreground_mask)
+            combined_images.append(combined_image)
+        return combined_images
+
+    def __len__(self) -> int:
+        return len(self.images_dataset)
 
 
 if __name__ == '__main__':

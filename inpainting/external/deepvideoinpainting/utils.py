@@ -179,7 +179,7 @@ from torch.utils.data.sampler import Sampler
 from torch.utils.data import DataLoader
 
 ### custom lib
-from .models.resample2d_package.resample2d import Resample2d
+from inpainting.external.layers.resample2d_package.resample2d import Resample2d
 
 FLO_TAG = 202021.25
 EPS = 1e-12

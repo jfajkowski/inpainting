@@ -155,7 +155,7 @@ class VINet_final(nn.Module):
         if self.opt.prev_warp:
             self.flownet_256 = LongFlowNetCorr(self.opt, 32 + 2)
             self.masknet_256 = MaskEstimator_(self.opt, 32)
-            from .resample2d_package.resample2d import Resample2d
+            from inpainting.external.layers.resample2d_package.resample2d import Resample2d
             self.warping_256 = Resample2d().cuda()
 
         self.masknet = MaskEstimator_(self.opt, 128)

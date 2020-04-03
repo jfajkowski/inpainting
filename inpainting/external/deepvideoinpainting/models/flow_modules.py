@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .correlation_package.correlation import Correlation
+from inpainting.external.layers.correlation_package.correlation import Correlation
 
 
 def get_grid(x):

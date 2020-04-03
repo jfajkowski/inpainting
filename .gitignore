@@ -33,3 +33,5 @@ var/
 # Project exclude paths
 /data/
 /models/
+/results/
+/debug/

@@ -10,7 +10,7 @@ def warp_tensor(x, flow, mode='bilinear', padding_mode='zeros'):
     grid = make_grid(x.size())
     grid += 2 * flow
     grid = grid.permute(0, 2, 3, 1)
-    return F.grid_sample(x, grid, mode=mode, padding_mode=padding_mode)
+    return F.grid_sample(x, grid, mode=mode, padding_mode=padding_mode, align_corners=True)
 
 
 def normalize_flow(flow):

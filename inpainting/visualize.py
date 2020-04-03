@@ -1,3 +1,6 @@
+from os import makedirs
+from os.path import dirname
+
 import flowiz as fz
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
@@ -7,7 +10,9 @@ import subprocess as sp
 from PIL import Image
 from torchvision.transforms.functional import to_pil_image
 
-DEBUG = False
+from inpainting.utils import tensor_to_cv_image, tensor_to_cv_mask
+
+DEBUG = True
 DEBUG_PATH = 'debug'
 
 
@@ -40,9 +45,45 @@ def animate_sequence(*args):
     return ani
 
 
-def save_video(frames, path, size=(256, 256), frame_rate=24, codec=cv.VideoWriter_fourcc(*'H264')):
-    height, width = size
-    video = cv.VideoWriter(path, codec, frame_rate, (width, height))
-    for frame in frames:
-        video.write(frame)
-    video.release()
+def save_frames(frames, dir, frame_type='image'):
+    extension = None
+    if frame_type == 'image':
+        extension = 'jpg'
+    elif frame_type == 'mask':
+        extension = 'png'
+    else:
+        ValueError(frame_type)
+
+    for i, frame in enumerate(frames):
+        save_frame(frame, f'{dir}/{i:05d}.{extension}', frame_type)
+
+
+def save_frame(frame, path, frame_type='image', roi=None):
+    if frame_type == 'image':
+        frame = tensor_to_cv_image(frame)
+    elif frame_type == 'mask':
+        frame = tensor_to_cv_mask(frame)
+    else:
+        ValueError(frame_type)
+
+    if roi:
+        assert frame_type == 'image'
+        frame = cv.rectangle(frame, roi[0], roi[1], (255, 0, 0))
+
+    makedirs(dirname(path), exist_ok=True)
+    cv.imwrite(path, frame)
+
+
+def save_video(video, path, frame_type='image', frame_rate=24, codec=cv.VideoWriter_fourcc(*'H264')):
+    if frame_type == 'image':
+        video = [tensor_to_cv_image(t) for t in video]
+    elif frame_type == 'mask':
+        video = [tensor_to_cv_mask(t) for t in video]
+    else:
+        ValueError(frame_type)
+
+    height, width = video[0].shape[-1], video[0].shape[-2]
+    video_writer = cv.VideoWriter(path, codec, frame_rate, (width, height))
+    for frame in video:
+        video_writer.write(frame)
+    video_writer.release()

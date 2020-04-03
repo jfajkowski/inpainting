@@ -1,12 +1,7 @@
-import torch
-import torch.nn as nn
 from torch.nn import init
 
-import math
-import numpy as np
-
 # from .correlation_package.modules.correlation import Correlation
-from .correlation_package.correlation import Correlation
+from inpainting.external.layers.correlation_package.correlation import Correlation
 
 from .submodules import *
 'Parameter count , 39,175,298 '
@@ -67,7 +62,7 @@ class FlowNetC(nn.Module):
                     init.uniform_(m.bias)
                 init.xavier_uniform_(m.weight)
                 # init_deconv_bilinear(m.weight)
-        self.upsample1 = nn.Upsample(scale_factor=4, mode='bilinear')
+        self.upsample1 = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
 
     def forward(self, x):
         x1 = x[:,0:3,:,:]

@@ -11,7 +11,7 @@ parser.add_argument('--C', type=int, default=3)
 parser.add_argument('--H', type=int, default=256)
 parser.add_argument('--W', type=int, default=256)
 opt = parser.parse_args()
-print(opt)
+
 
 
 class Network(nn.Module):

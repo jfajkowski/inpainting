@@ -6,7 +6,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 from torch.utils.data.dataloader import DataLoader
 
-from inpainting.external.liteflownet import Network
+from inpainting.custom.liteflownet import Network
 from inpainting.external import FlowAndFillInpaintingAlgorithm
 from inpainting.load import VideoDataset, DynamicMaskVideoDataset
 from scripts.train import InpaintingModel
@@ -61,7 +61,7 @@ for size in sizes:
             frames, masks, _ = sample
             frames = list(map(lambda x: x.cuda(), frames))
             masks = list(map(lambda x: x.cuda(), masks))
-            inpainting_algorithm.reset()
+            inpainting_algorithm.initialize()
             frames_filled, masks_filled = inpainting_algorithm.inpaint(frames, masks)
             frames_filled = list(map(lambda x: x.cpu(), frames_filled))
             masks_filled = list(map(lambda x: x.cpu(), masks_filled))

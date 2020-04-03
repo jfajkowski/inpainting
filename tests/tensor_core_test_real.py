@@ -7,7 +7,7 @@ from PIL import Image
 from apex.amp import amp
 from torch.utils.data.dataloader import DataLoader
 
-from inpainting.external.liteflownet import Network
+from inpainting.custom.liteflownet import Network
 from inpainting.external import FlowAndFillInpaintingAlgorithm
 from inpainting.load import VideoDataset, DynamicMaskVideoDataset
 from scripts.train import InpaintingModel
@@ -17,7 +17,7 @@ parser.add_argument('opt_level', type=str, default='O1')
 parser.add_argument('--batch-size', type=int, default=1)
 parser.add_argument('--size', type=int, default=(256, 256))
 opt = parser.parse_args()
-print(opt)
+
 
 frame_dataset = VideoDataset(
     list(glob.glob('data/raw/video/DAVIS/JPEGImages/480p/flamingo')),
@@ -49,5 +49,5 @@ with torch.no_grad():
     frames, masks, _ = sample
     frames = list(map(lambda x: x.cuda(), frames[:2]))
     masks = list(map(lambda x: x.cuda(), masks[:2]))
-    inpainting_algorithm.reset()
+    inpainting_algorithm.initialize()
     frames_filled, masks_filled = inpainting_algorithm.inpaint(frames, masks)

@@ -1,4 +1,4 @@
-name: external
+name: inpainting
 channels:
   - pytorch
   - conda-forge
@@ -11,7 +11,6 @@ dependencies:
   - cudatoolkit
   - torchvision
   - pytorch
-  - ignite
   - matplotlib
   - jupyter
   - pip
@@ -19,8 +18,11 @@ dependencies:
   - opencv
   - tensorboard
   - pillow
+  - make
+  - tqdm
   - pip:
       - -e .
       - flowiz
       - cupy-cuda101
       - pytorch-lightning
+      - git+https://github.com/davisvideochallenge/davis2017-evaluation.git

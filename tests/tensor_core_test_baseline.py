@@ -15,7 +15,7 @@ parser.add_argument('opt_level', type=str, default='O1')
 parser.add_argument('--batch-size', type=int, default=16)
 parser.add_argument('--size', type=int, default=(256, 256))
 opt = parser.parse_args()
-print(opt)
+
 
 image_transforms = transforms.Compose([
     transforms.Resize(opt.size, interpolation=Image.BILINEAR),
