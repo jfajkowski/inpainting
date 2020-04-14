@@ -19,15 +19,15 @@ from inpainting.visualize import debug
 
 
 class VideoInpaintingAlgorithm(abc.ABC):
-    def inpaint(self, frames: List[torch.Tensor], masks: List[torch.Tensor]) -> List[torch.Tensor]:
-        frames_result, masks_result = [], []
-        for frame, mask in zip(frames, masks):
-            frame_result = self.inpaint_online(frame, mask)
-            frames_result.append(frame_result)
-        return frames_result
+    def inpaint(self, images: List[torch.Tensor], masks: List[torch.Tensor]) -> List[torch.Tensor]:
+        images_result, masks_result = [], []
+        for image, mask in zip(images, masks):
+            image_result = self.inpaint_online(image, mask)
+            images_result.append(image_result)
+        return images_result
 
     @abc.abstractmethod
-    def inpaint_online(self, current_frame: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
+    def inpaint_online(self, current_image: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
         pass
 
 
@@ -35,14 +35,14 @@ class DeepFillVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
     def __init__(self):
         self.model = DeepFillV1Model('models/external/deepfillv1/imagenet_deepfill.pth').cuda().eval()
 
-    def inpaint_online(self, current_frame: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
+    def inpaint_online(self, current_image: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
         current_mask = invert_mask(current_mask)
-        current_frame = normalize(current_frame)
-        current_frame_masked = mask_tensor(current_frame, current_mask)
-        current_frame_filled = self.model(current_frame_masked, current_mask)
-        current_frame_result = denormalize(
-            current_mask * current_frame + (invert_mask(current_mask)) * current_frame_filled)
-        return current_frame_result
+        current_image = normalize(current_image)
+        current_image_masked = mask_tensor(current_image, current_mask)
+        current_image_filled = self.model(current_image_masked, current_mask)
+        current_image_result = denormalize(
+            current_mask * current_image + (invert_mask(current_mask)) * current_image_filled)
+        return current_image_result
 
 
 class DeepFlowGuidedVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
@@ -52,32 +52,32 @@ class DeepFlowGuidedVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
         self.eps = eps
         self.previous_available = False
         self.previous_mask = None
-        self.previous_frame = None
+        self.previous_image = None
         self.previous_mask_result = None
-        self.previous_frame_result = None
+        self.previous_image_result = None
 
     def initialize(self):
         self.previous_available = False
         self.previous_mask = None
-        self.previous_frame = None
+        self.previous_image = None
         self.previous_mask_result = None
-        self.previous_frame_result = None
+        self.previous_image_result = None
 
-    def inpaint_online(self, current_frame: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
+    def inpaint_online(self, current_image: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
         current_mask = invert_mask(current_mask)
 
         if not self.previous_available:
             self.previous_mask = current_mask
-            self.previous_frame = current_frame
+            self.previous_image = current_image
             self.previous_mask_result = current_mask
-            self.previous_frame_result = mask_tensor(current_frame, current_mask)
+            self.previous_image_result = mask_tensor(current_image, current_mask)
             self.previous_available = True
 
-        forward_flow = self.flow_model(self.previous_frame, current_frame)
+        forward_flow = self.flow_model(self.previous_image, current_image)
         forward_flow_masked = mask_tensor(forward_flow, self.previous_mask)
         forward_flow_filled = fill_flow(forward_flow_masked, self.previous_mask)
 
-        backward_flow = self.flow_model(current_frame, self.previous_frame)
+        backward_flow = self.flow_model(current_image, self.previous_image)
         backward_flow_masked = mask_tensor(backward_flow, current_mask)
         backward_flow_filled = fill_flow(backward_flow_masked, current_mask)
 
@@ -89,17 +89,17 @@ class DeepFlowGuidedVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
 
         current_mask_warped = warp_tensor(connected_pixels_mask * self.previous_mask_result, backward_flow_filled,
                                           mode='nearest')
-        current_frame_warped = warp_tensor(self.previous_frame_result, backward_flow_filled, mode='nearest')
+        current_image_warped = warp_tensor(self.previous_image_result, backward_flow_filled, mode='nearest')
 
         current_mask_result = current_mask + current_mask_warped * (invert_mask(current_mask))
-        current_frame_result = current_frame * current_mask + current_frame_warped * current_mask_warped * (
+        current_image_result = current_image * current_mask + current_image_warped * current_mask_warped * (
             invert_mask(current_mask))
 
-        debug(self.previous_frame, '0_previous_frame')
+        debug(self.previous_image, '0_previous_image')
         debug(self.previous_mask, '0_previous_mask')
-        debug(self.previous_frame_result, '0_previous_frame_result')
+        debug(self.previous_image_result, '0_previous_image_result')
         debug(self.previous_mask_result, '0_previous_mask_result')
-        debug(current_frame, '0_current_frame')
+        debug(current_image, '0_current_image')
         debug(current_mask, '0_current_mask')
         debug(forward_flow, '1_forward_flow')
         debug(forward_flow_masked, '1_forward_flow_masked')
@@ -109,30 +109,30 @@ class DeepFlowGuidedVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
         debug(backward_flow_filled, '1_backward_flow_filled')
         debug(flow_propagation_error, '2_flow_propagation_error')
         debug(connected_pixels_mask, '2_connected_pixels_mask')
-        debug(current_frame_warped, '3_current_frame_warped')
+        debug(current_image_warped, '3_current_image_warped')
         debug(current_mask_warped, '3_current_mask_warped')
-        debug(current_frame_result, '4_current_frame_result')
+        debug(current_image_result, '4_current_image_result')
         debug(current_mask_result, '4_current_mask_result')
 
         self.previous_mask = current_mask
-        self.previous_frame = current_frame
+        self.previous_image = current_image
         self.previous_mask_result = current_mask_result
-        self.previous_frame_result = mask_tensor(current_frame_result, current_mask_result)
+        self.previous_image_result = mask_tensor(current_image_result, current_mask_result)
 
-        current_frame, current_mask = current_frame_result, current_mask_result
+        current_image, current_mask = current_image_result, current_mask_result
 
-        current_frame = normalize(current_frame)
-        current_frame_masked = mask_tensor(current_frame, current_mask)
-        current_frame_filled = self.inpainting_model(current_frame_masked, current_mask)
-        current_frame_result = denormalize(
-            current_mask * current_frame + (invert_mask(current_mask)) * current_frame_filled)
+        current_image = normalize(current_image)
+        current_image_masked = mask_tensor(current_image, current_mask)
+        current_image_filled = self.inpainting_model(current_image_masked, current_mask)
+        current_image_result = denormalize(
+            current_mask * current_image + (invert_mask(current_mask)) * current_image_filled)
 
-        debug(current_frame, '0_current_frame', denormalize)
+        debug(current_image, '0_current_image', denormalize)
         debug(current_mask, '0_current_mask')
-        debug(current_frame_masked, '1_current_frame_masked', denormalize)
-        debug(current_frame_filled, '2_current_frame_filled', denormalize)
-        debug(current_frame_result, '3_current_frame_result')
-        return current_frame_result
+        debug(current_image_masked, '1_current_image_masked', denormalize)
+        debug(current_image_filled, '2_current_image_filled', denormalize)
+        debug(current_image_result, '3_current_image_result')
+        return current_image_result
 
 
 class SiamMaskVideoTrackingAlgorithm:
@@ -191,35 +191,35 @@ class DeepVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
         self.ones = None
         self.lstm_state = None
         self.masks = []
-        self.masked_frames = []
+        self.masked_images = []
         self.t = 0
         self.prev_mask = None
         self.prev_output = None
 
     def initialize(self):
         self.masks = []
-        self.masked_frames = []
+        self.masked_images = []
         self.previous_available = False
 
-    def inpaint_online(self, current_frame: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
-        current_frame = normalize(current_frame)
-        current_frame_masked = mask_tensor(current_frame, invert_mask(current_mask))
+    def inpaint_online(self, current_image: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
+        current_image = normalize(current_image)
+        current_image_masked = mask_tensor(current_image, invert_mask(current_mask))
 
         if not self.previous_available:
             self.masks = (4 * self.t_stride + 1) * [current_mask]
-            self.masked_frames = (4 * self.t_stride + 1) * [current_frame_masked]
+            self.masked_images = (4 * self.t_stride + 1) * [current_image_masked]
             self.ones = torch.ones(current_mask.size()).cuda()
             self.prev_mask = current_mask
-            self.prev_output = current_frame_masked
+            self.prev_output = current_image_masked
             self.previous_available = True
         elif self.t:
             self.masks.pop(0)
             self.masks = self.masks[2 * self.t_stride:] + (2 * self.t_stride + 1) * [current_mask]
-            self.masked_frames.pop(0)
-            self.masked_frames = self.masked_frames[2 * self.t_stride:] + (2 * self.t_stride + 1) * [current_frame_masked]
+            self.masked_images.pop(0)
+            self.masked_images = self.masked_images[2 * self.t_stride:] + (2 * self.t_stride + 1) * [current_image_masked]
 
         masks = torch.stack(self.masks[::self.t_stride], dim=2)
-        masked_inputs = torch.stack(self.masked_frames[::self.t_stride], dim=2)
+        masked_inputs = torch.stack(self.masked_images[::self.t_stride], dim=2)
         prev_feed = torch.cat([self.prev_output, self.ones, self.ones * self.prev_mask], dim=1)
 
         result, _, self.lstm_state, _, _ = self.model(masked_inputs, masks, self.lstm_state, prev_feed, self.t)
@@ -230,7 +230,7 @@ class DeepVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
         self.prev_mask = current_mask * 0.5
         self.prev_output = result
 
-        debug(current_frame, '0_current_frame', denormalize)
+        debug(current_image, '0_current_image', denormalize)
         debug(current_mask, '0_current_mask')
         debug(result, '1_result', denormalize)
 
@@ -251,17 +251,17 @@ class FreeFormVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
         self.masks = []
         self.previous_available = False
 
-    def inpaint_online(self, current_frame: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
-        current_frame = normalize(current_frame, mode='minmax')
+    def inpaint_online(self, current_image: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
+        current_image = normalize(current_image, mode='minmax')
         current_mask = invert_mask(current_mask)
 
         if not self.previous_available:
-            self.images = self.n * [current_frame]
+            self.images = self.n * [current_image]
             self.masks = self.n * [current_mask]
             self.previous_available = True
         else:
             self.images.pop(0)
-            self.images.append(current_frame)
+            self.images.append(current_image)
             self.masks.pop(0)
             self.masks.append(current_mask)
 

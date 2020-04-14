@@ -13,9 +13,9 @@ class MyDeepFlowGuidedVideoInpaintingAlgorithm(DeepFlowGuidedVideoInpaintingAlgo
         self.dilation_iterations = dilation_iterations
         self.flow_model = PWCNetModel().cuda().eval()
 
-    def inpaint_online(self, current_frame: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
+    def inpaint_online(self, current_image: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
         current_mask = dilate_tensor(current_mask, self.dilation_size, self.dilation_iterations)
-        return super().inpaint_online(current_frame, current_mask)
+        return super().inpaint_online(current_image, current_mask)
 
 
 class NoopVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
