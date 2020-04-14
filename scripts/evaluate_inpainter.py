@@ -7,7 +7,7 @@ from torchvision.transforms import transforms as T
 from tqdm import tqdm
 
 from inpainting.evaluate import save_stats, save_results, evaluate_inpainting
-from inpainting.load import VideoDataset, DynamicMaskVideoDataset, MergeDataset
+from inpainting.load import VideoDataset, MergeDataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--output-images-dir', type=str, default='results/demo/Inpainter/OutputImages')
@@ -30,7 +30,7 @@ with torch.no_grad():
     sample_dfs = []
     for i, (output_images, target_images) in enumerate(tqdm(dataset)):
         sample_df = evaluate_inpainting(target_images, output_images)
-        save_stats(sample_df.drop(columns=['t']), f'{opt.results_dir}/Misc/{i}')
+        save_stats(sample_df.drop(columns=['t']), f'{opt.results_dir}/Misc/{i:05d}')
         sample_df['video'] = i
         sample_dfs.append(sample_df)
 

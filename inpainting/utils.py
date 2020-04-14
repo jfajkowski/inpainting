@@ -21,7 +21,7 @@ def mask_to_bbox(mask):
 
 
 def tensor_to_cv_image(image_tensor: torch.Tensor, rgb2bgr: bool = True):
-    mat = (image_tensor * 255).type(torch.uint8).permute(1, 2, 0).numpy()
+    mat = (image_tensor * 255).type(torch.uint8).squeeze().permute(1, 2, 0).numpy()
     if rgb2bgr:
         mat = cv.cvtColor(mat, cv.COLOR_RGB2BGR)
     return mat
@@ -72,3 +72,10 @@ def mean_and_std(mode='standard'):
         return [0.0, 0.0, 0.0], [1.0, 1.0, 1.0]
     else:
         raise ValueError(mode)
+
+
+def dilate_tensor(x, size, iterations=1):
+    structuring_element = torch.ones((size, size)).view(1, 1, size, size).cuda()
+    for i in range(iterations):
+        x = (torch.nn.functional.conv2d(x, structuring_element, stride=1, padding=(size // 2, size // 2)) > 0).float()
+    return x

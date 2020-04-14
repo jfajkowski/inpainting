@@ -12,18 +12,15 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--images-dir', type=str, default='data/raw/demo/JPEGImages')
 parser.add_argument('--masks-dir', type=str, default='data/interim/demo/Masks')
 parser.add_argument('--output-dir', type=str, default='data/processed/demo')
-parser.add_argument('--size', type=int, nargs=2, default=(256, 256))
 opt = parser.parse_args()
 
 image_dataset = VideoDataset(
     glob.glob(f'{opt.images_dir}/*'),
-    frame_type='image',
-    transform=T.Resize(opt.size, interpolation=Image.BILINEAR)
+    frame_type='image'
 )
 annotation_dataset = VideoDataset(
     glob.glob(f'{opt.masks_dir}/*'),
-    frame_type='mask',
-    transform=T.Resize(opt.size, interpolation=Image.NEAREST)
+    frame_type='mask'
 )
 dataset = VideoObjectRemovalDataset(image_dataset, annotation_dataset, transform=T.ToTensor())
 

@@ -15,24 +15,21 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--input-images-dir', type=str, default='data/processed/demo/InputImages')
 parser.add_argument('--input-masks-dir', type=str, default='data/processed/demo/Masks')
 parser.add_argument('--results-dir', type=str, default='results/demo/Tracker')
-parser.add_argument('--size', type=int, nargs=2, default=(256, 256))
 opt = parser.parse_args()
 
 
 input_images_dataset = VideoDataset(
     list(glob.glob(f'{opt.input_images_dir}/*')),
-    'image',
-    transform=T.Resize(opt.size, Image.BILINEAR)
+    'image'
 )
 input_masks_dataset = VideoDataset(
     list(glob.glob(f'{opt.input_masks_dir}/*')),
-    'mask',
-    transform=T.Resize(opt.size, Image.NEAREST)
+    'mask'
 )
 dataset = DynamicMaskVideoDataset(input_images_dataset, input_masks_dataset, transform=T.ToTensor())
 
 with torch.no_grad():
-    tracking_algorithm = SiamMaskVideoTrackingAlgorithm()
+    tracking_algorithm = SiamMaskVideoTrackingAlgorithm(mask_type='box')
 
     for i, (input_images, input_masks) in enumerate(tqdm(dataset)):
         output_masks = []
@@ -43,5 +40,5 @@ with torch.no_grad():
             output_mask = tracking_algorithm.find_mask(input_image)
             output_masks.append(output_mask)
 
-        save_frame(initial_image, f'{opt.results_dir}/Misc/{i}/initial_image_and_roi.jpg', 'image', initial_roi)
-        save_frames(output_masks, f'{opt.results_dir}/OutputMasks/{i}', 'mask')
+        save_frame(initial_image, f'{opt.results_dir}/Misc/{i:05d}/initial_image_and_roi.jpg', 'image', initial_roi)
+        save_frames(output_masks, f'{opt.results_dir}/OutputMasks/{i:05d}', 'mask')

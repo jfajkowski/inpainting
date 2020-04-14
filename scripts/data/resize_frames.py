@@ -12,7 +12,7 @@ from inpainting.load import VideoDataset, save_image
 parser = argparse.ArgumentParser()
 parser.add_argument('--input-dir', type=str, default='data/raw/DAVIS/JPEGImages/480p')
 parser.add_argument('--output-dir', type=str, default='data/interim/DAVIS/JPEGImages')
-parser.add_argument('--size', type=str, default=(256, 256))
+parser.add_argument('--size', type=int, nargs=2, default=(256, 256))
 parser.add_argument('--type', type=str, default='image')
 opt = parser.parse_args()
 

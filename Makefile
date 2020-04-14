@@ -1,6 +1,13 @@
 
-.PHONY: clean create_environment data evaluate
+.PHONY: clean create_environment data evaluate demo
 .SECONDARY: ## Save all intermediate files
+
+#################################################################################
+# PARAMETERS                                                                    #
+#################################################################################
+
+WIDTH = 256
+HEIGHT = 256
 
 #################################################################################
 # GLOBALS                                                                       #
@@ -12,6 +19,7 @@ PROCESSED_DIR = data/processed
 RESULTS_DIR = results
 DATASETS = $(PROCESSED_DIR)/DAVIS $(PROCESSED_DIR)/demo
 RESULTS = $(RESULTS_DIR)/DAVIS/results.txt $(RESULTS_DIR)/demo/results.txt
+DEMO = $(PROCESSED_DIR)/demo $(RESULTS_DIR)/demo/results.txt
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -25,16 +33,26 @@ create_environment:
 # PROJECT RULES                                                                 #
 #################################################################################
 
+## Demo data and evaluation
+demo: $(DEMO)
+
 ## Prepare Video Object Removal Dataset
 data: $(DATASETS)
 
 $(PROCESSED_DIR)/% : $(PROCESSED_DIR)/%/InputImages $(PROCESSED_DIR)/%/Masks $(PROCESSED_DIR)/%/TargetImages ;
 
-$(PROCESSED_DIR)/%/InputImages $(PROCESSED_DIR)/%/Masks $(PROCESSED_DIR)/%/TargetImages &: $(RAW_DIR)/%/JPEGImages $(INTERIM_DIR)/%/Masks
+$(PROCESSED_DIR)/%/InputImages $(PROCESSED_DIR)/%/Masks $(PROCESSED_DIR)/%/TargetImages &: $(INTERIM_DIR)/%/ResizedJPEGImages $(INTERIM_DIR)/%/ResizedMasks
 	python scripts/data/prepare_vor_dataset.py --images-dir $(word 1,$^) --masks-dir $(word 2,$^) --output-dir $(dir $@)
 
-$(INTERIM_DIR)/%/Masks: $(RAW_DIR)/%/Annotations
+$(INTERIM_DIR)/%/ResizedMasks: $(INTERIM_DIR)/%/ResizedAnnotations
 	python scripts/data/masks/extract_masks.py --input-dir $(word 1,$^) --output-dir $@ --index 1
+
+$(INTERIM_DIR)/%/ResizedAnnotations: $(RAW_DIR)/%/Annotations
+	python scripts/data/resize_frames.py --input-dir $(word 1,$^) --output-dir $@ --size $(WIDTH) $(HEIGHT) --type 'annotation'
+
+$(INTERIM_DIR)/%/ResizedJPEGImages: $(RAW_DIR)/%/JPEGImages
+	python scripts/data/resize_frames.py --input-dir $(word 1,$^) --output-dir $@ --size $(WIDTH) $(HEIGHT) --type 'image'
+
 
 ## Evaluate
 evaluate: $(RESULTS)

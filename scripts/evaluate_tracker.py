@@ -10,9 +10,9 @@ from inpainting.evaluate import evaluate_tracking, save_stats, save_results
 from inpainting.load import VideoDataset, DynamicMaskVideoDataset
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--output-masks-dir', type=str, default='results/demo/Masks')
+parser.add_argument('--output-masks-dir', type=str, default='results/demo/Tracker/OutputMasks')
 parser.add_argument('--target-masks-dir', type=str, default='data/processed/demo/Masks')
-parser.add_argument('--results-dir', type=str, default='results/demo')
+parser.add_argument('--results-dir', type=str, default='results/demo/Tracker')
 opt = parser.parse_args()
 
 
@@ -30,7 +30,7 @@ with torch.no_grad():
     sample_dfs = []
     for i, (output_masks, target_masks) in enumerate(tqdm(dataset)):
         sample_df = evaluate_tracking(target_masks, output_masks)
-        save_stats(sample_df.drop(columns=['t']), f'{opt.results_dir}/Misc/{i}')
+        save_stats(sample_df.drop(columns=['t']), f'{opt.results_dir}/Misc/{i:05d}')
         sample_df['video'] = i
         sample_dfs.append(sample_df)
 

@@ -1,18 +1,16 @@
 from os import makedirs
 from os.path import dirname
 
+import cv2 as cv
 import flowiz as fz
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-import cv2 as cv
-import subprocess as sp
-
 from PIL import Image
 from torchvision.transforms.functional import to_pil_image
 
 from inpainting.utils import tensor_to_cv_image, tensor_to_cv_mask
 
-DEBUG = True
+DEBUG = False
 DEBUG_PATH = 'debug'
 
 
@@ -74,16 +72,18 @@ def save_frame(frame, path, frame_type='image', roi=None):
     cv.imwrite(path, frame)
 
 
-def save_video(video, path, frame_type='image', frame_rate=24, codec=cv.VideoWriter_fourcc(*'H264')):
+def save_video(frames, path, frame_type='image', frame_rate=24, codec=cv.VideoWriter_fourcc(*'H264')):
+    height, width = frames[0].shape[-1], frames[0].shape[-2]
+
     if frame_type == 'image':
-        video = [tensor_to_cv_image(t) for t in video]
+        frames = [tensor_to_cv_image(t) for t in frames]
     elif frame_type == 'mask':
-        video = [tensor_to_cv_mask(t) for t in video]
+        frames = [tensor_to_cv_mask(t) for t in frames]
     else:
         ValueError(frame_type)
 
-    height, width = video[0].shape[-1], video[0].shape[-2]
+    makedirs(dirname(path), exist_ok=True)
     video_writer = cv.VideoWriter(path, codec, frame_rate, (width, height))
-    for frame in video:
+    for frame in frames:
         video_writer.write(frame)
     video_writer.release()
