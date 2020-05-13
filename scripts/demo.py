@@ -9,9 +9,9 @@ from inpainting.load import VideoDataset
 from inpainting.utils import tensor_to_cv_image, cv_image_to_tensor, tensor_to_cv_mask
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--images-dir', type=str, default='data/raw/DAVIS/JPEGImages/tennis')
+parser.add_argument('--images-dir', type=str, default='camera')
 parser.add_argument('--show-mask', type=bool, default=True)
-parser.add_argument('--size', type=int, nargs=2, default=(512, 768))
+parser.add_argument('--size', type=int, nargs=2, default=(512, 512))
 opt = parser.parse_args()
 
 image_sequence = None
