@@ -6,12 +6,17 @@ import flowiz as fz
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 from PIL import Image
-from torchvision.transforms.functional import to_pil_image
+from torchvision.transforms.functional import to_pil_image, to_tensor
+from torchvision.utils import make_grid
 
 from inpainting.utils import tensor_to_cv_image, tensor_to_cv_mask
 
 DEBUG = False
 DEBUG_PATH = 'debug'
+
+
+def flow_to_image_tensor(tensor):
+    return to_tensor(flow_to_pil_image(tensor))
 
 
 def flow_to_pil_image(tensor):
@@ -29,6 +34,13 @@ def debug(tensor, name, denormalization_function=None):
         else:
             image = to_pil_image(example)
         image.save(f'{DEBUG_PATH}/{name}.png')
+
+
+def tensor_to_pil_image(tensor):
+    assert 3 <= len(tensor.size()) <= 4
+    if len(tensor.size()) == 4:
+        tensor = make_grid(tensor)
+    return to_pil_image(tensor.cpu())
 
 
 def animate_sequence(*args):
@@ -57,6 +69,9 @@ def save_frames(frames, dir, frame_type='image'):
 
 
 def save_frame(frame, path, frame_type='image', roi=None):
+    if isinstance(frame, Image.Image):
+        frame = to_tensor(frame)
+
     if frame_type == 'image':
         frame = tensor_to_cv_image(frame)
     elif frame_type == 'mask':

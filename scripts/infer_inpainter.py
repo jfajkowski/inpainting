@@ -1,18 +1,18 @@
 import argparse
 import glob
-
 import torch
-from torchvision.transforms import transforms as T
+
 from tqdm import tqdm
 
-from inpainting.custom.algorithms import MyDeepFlowGuidedVideoInpaintingAlgorithm
-from inpainting.external.algorithms import FreeFormVideoInpaintingAlgorithm
+import inpainting.transforms as T
 from inpainting.load import VideoDataset, MergeDataset
+from inpainting.models.algorithms import SingleFrameVideoInpaintingAlgorithm, StableVideoInpaintingAlgorithm, \
+    FlowGuidedVideoInpaintingAlgorithm
 from inpainting.visualize import save_frames
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--input-images-dir', type=str, default='data/processed/demo/InputImages')
-parser.add_argument('--input-masks-dir', type=str, default='data/processed/demo/Masks')
+parser.add_argument('--input-images-dir', type=str, default='data/interim/demo/ResizedJPEGImages')
+parser.add_argument('--input-masks-dir', type=str, default='data/interim/demo/ResizedMasks')
 parser.add_argument('--results-dir', type=str, default='results/demo/Inpainter')
 opt = parser.parse_args()
 
@@ -27,7 +27,7 @@ input_masks_dataset = VideoDataset(
 dataset = MergeDataset([input_images_dataset, input_masks_dataset], transform=T.ToTensor())
 
 with torch.no_grad():
-    inpainting_algorithm = MyDeepFlowGuidedVideoInpaintingAlgorithm()
+    inpainting_algorithm = StableVideoInpaintingAlgorithm()
 
     for i, (input_images, input_masks) in enumerate(tqdm(dataset)):
         output_images = []

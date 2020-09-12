@@ -1,10 +1,12 @@
 import cv2 as cv
 import numpy as np
 import torch
+
+from torch.nn import functional as F
 from PIL import Image
 
 
-def annotation_to_mask(image, object_id):
+def annotation_to_mask(image, object_id=0):
     image = np.array(image)
     mask = np.zeros(image.shape, dtype=np.uint8)
     mask[image == object_id] = 255
@@ -12,12 +14,17 @@ def annotation_to_mask(image, object_id):
 
 
 def mask_to_bbox(mask):
-    mask = tensor_to_cv_mask(mask)
-    cols = np.any(mask, axis=0)
-    rows = np.any(mask, axis=1)
-    x1, x2 = np.where(cols)[0][[0, -1]]
-    y1, y2 = np.where(rows)[0][[0, -1]]
-    return (x1, y1), (x2, y2)
+    if isinstance(mask, torch.Tensor):
+        mask = tensor_to_cv_mask(mask.cpu())
+    mask = np.array(mask)
+    if np.any(mask):
+        cols = np.any(mask, axis=0)
+        rows = np.any(mask, axis=1)
+        x1, x2 = np.where(cols)[0][[0, -1]]
+        y1, y2 = np.where(rows)[0][[0, -1]]
+        return (x1, y1), (x2, y2)
+    else:
+        return None
 
 
 def tensor_to_cv_image(image_tensor: torch.Tensor, rgb2bgr: bool = True):
@@ -74,8 +81,42 @@ def mean_and_std(mode='standard'):
         raise ValueError(mode)
 
 
+def normalize_flow(flow):
+    h, w, _ = flow.shape
+    flow[:, :, 0] /= float(w)
+    flow[:, :, 1] /= float(h)
+    return flow
+
+
+def denormalize_flow(flow):
+    h, w, _ = flow.shape
+    flow[:, :, 0] *= float(w)
+    flow[:, :, 1] *= float(h)
+    return flow
+
+
 def dilate_tensor(x, size, iterations=1):
     structuring_element = torch.ones((size, size)).view(1, 1, size, size).cuda()
     for i in range(iterations):
-        x = (torch.nn.functional.conv2d(x, structuring_element, stride=1, padding=(size // 2, size // 2)) > 0).float()
+        x = (F.conv2d(x, structuring_element, stride=1, padding=(size // 2, size // 2)) > 0).float()
     return x
+
+
+def warp_tensor(x, flow):
+    assert x.size()[-2:] == flow.size()[-2:]
+    grid = _make_grid(x.size()).to(x.device)
+    grid += 2 * flow
+    grid = grid.permute(0, 2, 3, 1)
+    return F.grid_sample(x, grid, mode='bilinear', padding_mode='zeros', align_corners=True)
+
+
+def _make_grid(size, normalized=True):
+    b, _, h, w = size
+    x_ = torch.arange(w).view(1, -1).expand(h, -1)
+    y_ = torch.arange(h).view(-1, 1).expand(-1, w)
+    grid = torch.stack([x_, y_], dim=0).float()
+    grid = grid.unsqueeze(0).expand(1, -1, -1, -1)
+    if normalized:
+        grid[:, 0, :, :] = 2 * grid[:, 0, :, :] / (w - 1) - 1
+        grid[:, 1, :, :] = 2 * grid[:, 1, :, :] / (h - 1) - 1
+    return grid.repeat(b, 1, 1, 1)

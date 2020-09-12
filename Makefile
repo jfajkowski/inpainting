@@ -1,5 +1,5 @@
 
-.PHONY: clean create_environment data evaluate demo
+.PHONY: clean create_environment data evaluate demo install
 .SECONDARY: ## Save all intermediate files
 
 #################################################################################
@@ -28,6 +28,12 @@ DEMO = $(PROCESSED_DIR)/demo $(RESULTS_DIR)/demo/results.txt
 ## Set up python interpreter environment
 create_environment:
 	conda env create -f environment.yml
+
+## Install layers
+install:
+	cd ./inpainting/external/layers/correlation_package && python setup.py install
+	cd ./inpainting/external/layers/resample2d_package && python setup.py install
+	cd ./inpainting/external/layers/channelnorm_package && python setup.py install
 
 #################################################################################
 # PROJECT RULES                                                                 #

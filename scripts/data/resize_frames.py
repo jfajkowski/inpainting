@@ -7,7 +7,7 @@ from PIL import Image
 from torchvision import transforms
 from tqdm import tqdm
 
-from inpainting.load import VideoDataset, save_image
+from inpainting.load import VideoDataset, save_sample
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input-dir', type=str, default='data/raw/DAVIS/JPEGImages/480p')
@@ -19,7 +19,7 @@ opt = parser.parse_args()
 # Load and resize frames
 frame_dirs = list(glob.glob(f'{opt.input_dir}/*'))
 interpolation = Image.BILINEAR if opt.type == 'image' else Image.NEAREST
-frame_dataset = VideoDataset(frame_dirs, frame_type=opt.type,
+frame_dataset = VideoDataset(frame_dirs, sample_type=opt.type,
                              transform=transforms.Resize(opt.size[::-1], interpolation))
 
 # Save resized frames
@@ -30,4 +30,4 @@ for sequence_dir, sequence in tqdm(zip(frame_dirs, frame_dataset), desc='Resizin
     makedirs(image_o_dir, exist_ok=True)
     for frame_path, frame in zip(glob.glob(f'{sequence_dir}/*'), sequence):
         frame_name = basename(frame_path)
-        save_image(frame, f'{image_o_dir}/{frame_name}', opt.type)
+        save_sample(frame, f'{image_o_dir}/{frame_name}', opt.type)

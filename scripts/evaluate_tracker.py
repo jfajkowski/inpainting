@@ -6,7 +6,7 @@ import torch
 from torchvision.transforms import transforms as T
 from tqdm import tqdm
 
-from inpainting.evaluate import evaluate_tracking, save_stats, save_results
+from inpainting.evaluate import evaluate_segmentation, save_stats, save_results
 from inpainting.load import VideoDataset, DynamicMaskVideoDataset
 
 parser = argparse.ArgumentParser()
@@ -29,7 +29,7 @@ dataset = DynamicMaskVideoDataset(output_masks_dataset, target_masks_dataset, tr
 with torch.no_grad():
     sample_dfs = []
     for i, (output_masks, target_masks) in enumerate(tqdm(dataset)):
-        sample_df = evaluate_tracking(target_masks, output_masks)
+        sample_df = evaluate_segmentation(target_masks, output_masks)
         save_stats(sample_df.drop(columns=['t']), f'{opt.results_dir}/Misc/{i:05d}')
         sample_df['video'] = i
         sample_dfs.append(sample_df)

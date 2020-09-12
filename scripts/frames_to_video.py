@@ -2,14 +2,12 @@ import argparse
 import glob
 from os.path import basename
 
-from PIL import Image
-from torchvision.transforms import transforms as T
-
+import inpainting.transforms as T
 from inpainting.load import VideoDataset
 from inpainting.visualize import save_video
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--frames-pattern', type=str, default='results/demo/Inpainter/OutputImages/')
+parser.add_argument('--frames-pattern', type=str, default='results/demo/Inpainter/OutputImages/*')
 parser.add_argument('--video-dir', type=str, default='results/demo/Inpainter/Misc')
 parser.add_argument('--video-name', type=str, default='output_images.mp4')
 parser.add_argument('--frame-type', type=str, default='image')

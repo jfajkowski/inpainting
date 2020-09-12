@@ -6,23 +6,21 @@ dependencies:
   - cython
   - numpy
   - pandas
-  - scikit-learn
   - scikit-image
   - cudatoolkit
   - torchvision
   - pytorch
-  - matplotlib
-  - jupyter
-  - pip
-  - nvidia-apex
-  - opencv
+  - pytorch-lightning
   - tensorboard
+  - opencv
   - pillow
   - make
   - tqdm
+  - jupyter
+  - pip
+  - imaug
+  - albumentations
   - pip:
       - -e .
       - flowiz
-      - cupy-cuda101
-      - pytorch-lightning
-      - git+https://github.com/davisvideochallenge/davis2017-evaluation.git
+      - cupy-cuda102

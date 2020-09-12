@@ -3,7 +3,7 @@ import glob
 from torchvision.transforms import transforms
 
 from inpainting.load import VideoDataset
-from inpainting.visualize import show_image
+from inpainting.visualize import tensor_to_pil_image
 
 time = 8
 batch_size = 8
@@ -21,4 +21,4 @@ video_dataset = VideoDataset(list(glob.glob('../data/raw/video/DAVIS/JPEGImages/
 
 frames, frame_dir = video_dataset[0]
 
-show_image(frames[0:5])
+tensor_to_pil_image(frames[0:5])

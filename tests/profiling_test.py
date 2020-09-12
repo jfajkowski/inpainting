@@ -21,14 +21,14 @@ sizes = [
 for size in sizes:
     frame_dataset = VideoDataset(
         list(glob.glob('data/raw/video/DAVIS/JPEGImages/480p/flamingo')),
-        frame_type='image',
+        sample_type='image',
         transform=transforms.Compose([
             transforms.Resize(size, interpolation=Image.BILINEAR),
             transforms.ToTensor()
         ]))
     mask_dataset = VideoDataset(
         list(glob.glob('data/processed/video/DAVIS/Annotations_dilated/480p/flamingo')),
-        frame_type='mask',
+        sample_type='mask',
         transform=transforms.Compose([
             transforms.Resize(size, interpolation=Image.NEAREST),
             transforms.ToTensor()

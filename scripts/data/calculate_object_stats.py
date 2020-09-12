@@ -17,7 +17,7 @@ opt = parser.parse_args()
 
 # Load annotations
 annotation_dirs = list(glob.glob(f'{opt.annotations_dir}/*'))
-annotation_dataset = VideoDataset(annotation_dirs, frame_type='annotation')
+annotation_dataset = VideoDataset(annotation_dirs, sample_type='annotation')
 
 # Calculate object stats for each sequence
 dataset_stats = {'videos': {}}

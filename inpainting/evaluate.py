@@ -1,13 +1,14 @@
 from os import makedirs
 
 import pandas as pd
+import torch
 from skimage.metrics import mean_squared_error, structural_similarity, peak_signal_noise_ratio
 
-from .davis.metrics import db_eval_iou, db_eval_boundary
+from .metrics import db_eval_iou, db_eval_boundary
 from .utils import tensor_to_cv_image
 
 
-def evaluate_tracking(target_masks, output_masks):
+def evaluate_segmentation(target_masks, output_masks):
     results = []
     for t, (target_mask, output_mask) in enumerate(zip(target_masks, output_masks)):
         target_mask, output_mask = target_mask.numpy(), output_mask.numpy()
@@ -28,6 +29,17 @@ def evaluate_inpainting(target_images, output_images):
             'mean_squared_error': float(mean_squared_error(target_image, output_image)),
             'peak_signal_noise_ratio': float(peak_signal_noise_ratio(target_image, output_image)),
             'structural_similarity': float(structural_similarity(target_image, output_image, multichannel=True))
+        })
+    return pd.DataFrame(results)
+
+
+def evaluate_flow_estimation(target_flows, output_flows):
+    results = []
+    for t, (target_flow, output_flow) in enumerate(zip(target_flows, output_flows)):
+        target_flow, output_flow = tensor_to_cv_image(target_flow), tensor_to_cv_image(output_flow)
+        results.append({
+            't': t,
+            'endpoint_error': float(torch.cdist(target_flow, output_flow))
         })
     return pd.DataFrame(results)
 

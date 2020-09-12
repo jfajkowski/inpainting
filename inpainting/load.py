@@ -1,151 +1,113 @@
+import abc
 import glob
 
+import cv2 as cv
+import flowiz as fz
 import numpy as np
 from PIL import Image
-from torch.utils.data import Dataset
-from torch.utils.data.dataset import IterableDataset
+from torch.utils.data import Dataset, IterableDataset
+from torchvision.utils import make_grid, save_image
+import random
+
+from inpainting.utils import annotation_to_mask
 
 
-class InpaintingImageDataset(Dataset):
-    def __init__(self, image_dataset, mask_dataset, transform=None):
-        self.image_dataset = image_dataset
-        self.mask_generator = iter(mask_dataset)
-        self.transform = transform
+def load_sample(image_path: str, image_type: str):
+    if image_type == 'image':
+        return Image.open(image_path).convert('RGB')
+    elif image_type == 'mask':
+        return Image.open(image_path).convert('L')
+    elif image_type == 'annotation':
+        return Image.open(image_path).convert('P')
+    elif image_type == 'flow':
+        return fz.read_flow(image_path)
+    else:
+        raise ValueError(image_type)
 
-    def __getitem__(self, index: int):
-        image = self.image_dataset.__getitem__(index)
-        mask = next(self.mask_generator)
 
-        if self.transform is not None:
-            image, mask = tuple(map(self.transform, (image, mask)))
-
-        return image, mask
-
-    def __len__(self) -> int:
-        return len(self.image_dataset)
+def save_sample(image: np.ndarray, image_path: str, image_type: str):
+    if image_type == 'image':
+        Image.fromarray(image, 'RGB').save(image_path)
+    elif image_type == 'mask':
+        Image.fromarray(image, 'L').save(image_path)
+    elif image_type == 'annotation':
+        Image.fromarray(image, 'P').save(image_path)
+    elif image_type == 'flow':
+        Image.fromarray(fz.convert_from_flow(image)).save(image_path)
+    else:
+        raise ValueError(image_type)
 
 
 class ImageDataset(Dataset):
 
-    def __init__(self, image_dirs, transform=None):
+    def __init__(self, sample_dirs, sample_type, transform=None):
 
-        if not image_dirs:
+        if not sample_dirs:
             raise ValueError('Empty image directory list given to ImageDataset')
 
-        self.dir_list = image_dirs
+        self.sample_dirs = sample_dirs
+        self.sample_type = sample_type
         self.transform = transform
         self.considered_images = []
 
-        for image_dir in image_dirs:
-            self.considered_images += glob.glob(f'{image_dir}/**/*.jpg', recursive=True)
+        for sample_dir in sample_dirs:
+            self.considered_images += sorted(glob.glob(f'{sample_dir}/**/*', recursive=True))
 
     def __getitem__(self, index: int):
-        image = load_image(self.considered_images[index], 'image')
+        sample = load_sample(self.considered_images[index], self.sample_type)
         if self.transform is not None:
-            image = self.transform(image)
-        return image
+            sample, = self.transform(sample)
+        return sample
 
     def __len__(self) -> int:
         return len(self.considered_images)
 
 
-class RectangleMaskDataset(IterableDataset):
+class VideoDataset(Dataset):
 
-    def __init__(self, height, width, rectangle=None, transform=None):
-        if not rectangle:
-            rectangle = (int(width * 1 / 4), int(height * 1 / 4), int(width * 1 / 2), int(height * 1 / 2))
-        self.mask = self._create_mask(height, width, rectangle)
+    def __init__(self, sample_dirs, sample_type, sequence_length=None, transform=None):
+
+        if not sample_dirs:
+            raise ValueError('Empty frame directory list given to VideoDataset')
+
+        if sequence_length and sequence_length < 1:
+            raise ValueError('Sequence length must be at least 1')
+
+        self.sample_dirs = sample_dirs
+        self.sample_type = sample_type
+        self.sequence_length = sequence_length
         self.transform = transform
+        self.considered_sequence_dirs = []
+        self.sequence_count = 0
 
-    @staticmethod
-    def _create_mask(height, width, rectangle):
-        mask = np.ones((height, width), dtype=np.uint8) * 255
-        x, y, w, h = rectangle
-        mask[y:y + h, x:x + w] = 0
-        return Image.fromarray(mask, mode='L')
+        for sample_dir in sample_dirs:
+            frame_paths = sorted(glob.glob(f'{sample_dir}/*'))
+            frame_count = len(frame_paths)
+            if sequence_length and frame_count < sequence_length:
+                print(f'Omitting {sample_dir} because it contains only {frame_count} upper_frames '
+                      f'and sequence length is set to {sequence_length}')
+            else:
+                self.considered_sequence_dirs += self.split_to_sequence_paths(frame_paths)
+                self.sequence_count += frame_count - sequence_length if sequence_length else 0 + 1
 
-    def __iter__(self):
-        while True:
-            mask = self.mask
-            if self.transform is not None:
-                mask = self.transform(mask.copy())
-            yield mask
+    def split_to_sequence_paths(self, frame_paths):
+        if not self.sequence_length:
+            return [frame_paths]
 
-
-class FileMaskDataset(IterableDataset):
-
-    def __init__(self, mask_dir, shuffle=True, transform=None):
-        self.mask_paths = list(glob.glob(f'{mask_dir}/*'))
-        self.mask_paths_generator = self._random_mask_path_generator()
-        self.shuffle = shuffle
-        self.transform = transform
-
-    def __iter__(self):
-        while True:
-            mask = load_image(next(self.mask_paths_generator), 'mask')
-            if self.transform is not None:
-                mask = self.transform(mask)
-            yield mask
-
-    def _random_mask_path_generator(self):
-        while True:
-            if self.shuffle:
-                np.random.shuffle(self.mask_paths)
-            for mask_path in self.mask_paths:
-                yield mask_path
-
-
-class DynamicMaskVideoDataset(Dataset):
-
-    def __init__(self, frame_dataset, mask_dataset, transform=None):
-        self.frame_dataset = frame_dataset
-        self.mask_dataset = mask_dataset
-        self.transform = transform
-        if len(self.frame_dataset) != len(self.mask_dataset):
-            raise ValueError('Lengths of frames dataset and masks dataset don\'t match')
+        result = []
+        for i in range(len(frame_paths) + 1 - self.sequence_length):
+            result.append(frame_paths[i:i + self.sequence_length])
+        return result
 
     def __getitem__(self, index: int):
-        frames = self.frame_dataset.__getitem__(index)
-        masks = self.mask_dataset.__getitem__(index)
-        for i in range(len(frames)):
-            frame = frames[i]
-            mask = masks[i]
-            if self.transform is not None:
-                frame, mask = tuple(map(self.transform, (frame, mask)))
-
-            frames[i] = frame
-            masks[i] = mask
-
-        return frames, masks
+        frame_paths = self.considered_sequence_dirs[index]
+        frames = [load_sample(frame_path, self.sample_type) for frame_path in frame_paths]
+        if self.transform is not None:
+            frames, = self.transform(frames)
+        return frames
 
     def __len__(self) -> int:
-        return len(self.frame_dataset)
-
-
-class StaticMaskVideoDataset(Dataset):
-
-    def __init__(self, frame_dataset, mask_dataset, transform=None):
-        self.frame_dataset = frame_dataset
-        self.mask_dataset = mask_dataset
-        self.mask_generator = iter(mask_dataset)
-        self.transform = transform
-
-    def __getitem__(self, index: int):
-        frames, frame_dir = self.frame_dataset.__getitem__(index)
-        masks = [next(self.mask_generator)] * len(frames)
-        for i in range(len(frames)):
-            frame = frames[i]
-            mask = masks[i]
-            if self.transform is not None:
-                frame, mask = tuple(map(self.transform, (frame, mask)))
-
-            frames[i] = frame
-            masks[i] = mask
-
-        return frames, masks, frame_dir
-
-    def __len__(self) -> int:
-        return len(self.frame_dataset)
+        return self.sequence_count
 
 
 class MergeDataset(Dataset):
@@ -157,127 +119,132 @@ class MergeDataset(Dataset):
     def __getitem__(self, index: int):
         sample = [d[index] for d in self.datasets]
         if self.transform is not None:
-            for i in range(len(sample)):
-                sample[i] = [self.transform(s) for s in sample[i]]
+            sample = self.transform(*sample)
         return tuple(sample)
 
     def __len__(self) -> int:
         return len(self.datasets[0])
 
 
-def load_image(image_path, image_type):
-    if image_type == 'image':
-        return Image.open(image_path).convert('RGB')
-    elif image_type == 'mask':
-        return Image.open(image_path).convert('L')
-    elif image_type == 'annotation':
-        return Image.open(image_path).convert('P')
-    else:
-        raise ValueError(image_type)
+def _max_annotation_id(annotation):
+    return np.amax(annotation)
 
 
-def save_image(image, image_path, image_type):
-    if image_type == 'image':
-        return image.convert('RGB').save(image_path)
-    elif image_type == 'mask':
-        return image.convert('L').save(image_path)
-    elif image_type == 'annotation':
-        return image.convert('P').save(image_path)
-    else:
-        raise ValueError(image_type)
+def _random_mask(size):
+    h, w = size
+    s = random.choice([h, w])
+    min_points, max_points = 1, s // 5
+    min_thickness, max_thickness = 1, s // 5
+    min_angle_dir, max_angle_dir = 0, 2 * np.pi
+    min_angle_fold, max_angle_fold = - np.pi / 2, np.pi / 2
+    min_length, max_length = 1, s // 5
+
+    mask = np.zeros((h, w), dtype='int')
+    points = random.randint(min_points, max_points)
+    thickness = random.randint(min_thickness, max_thickness)
+
+    prev_x = random.randint(0, w)
+    prev_y = random.randint(0, h)
+
+    angle_dir = random.uniform(min_angle_dir, max_angle_dir)
+    for i in range(points):
+        angle_fold = random.uniform(min_angle_fold, max_angle_fold)
+        angle = angle_dir + angle_fold
+        length = random.randint(min_length, max_length)
+        x = int(prev_x + length * np.sin(angle))
+        y = int(prev_y + length * np.cos(angle))
+        mask = cv.line(mask, (prev_x, prev_y), (x, y), color=255, thickness=thickness)
+        prev_x = x
+        prev_y = y
+    return Image.fromarray(mask).convert('L')
 
 
-class VideoDataset(Dataset):
+def _paste_object(background_image, foreground_image, foreground_mask):
+    assert foreground_image.size == background_image.size == foreground_mask.size
+    combined_image = background_image.copy()
+    combined_image.paste(foreground_image, mask=foreground_mask)
+    return combined_image
 
-    def __init__(self, frame_dirs, frame_type, sequence_length=None, transform=None):
 
-        if not frame_dirs:
-            raise ValueError('Empty frame directory list given to VideoDataset')
+class ImageObjectRemovalDataset(IterableDataset):
 
-        if sequence_length and sequence_length < 1:
-            raise ValueError('Sequence length must be at least 1')
-
-        self.frame_dirs = frame_dirs
-        self.frame_type = frame_type
-        self.sequence_length = sequence_length
+    def __init__(self, background_dataset: ImageDataset, foreground_dataset: MergeDataset, transform=None):
+        self.background_dataset = background_dataset
+        self.foreground_dataset = foreground_dataset
         self.transform = transform
-        self.considered_videos = []
+        if len(self.background_dataset) != len(self.foreground_dataset):
+            raise ValueError('Lengths of background dataset and foreground dataset don\'t match')
 
-        for frames_dir in frame_dirs:
-            frames_count = len(glob.glob(f'{frames_dir}/*'))
-            if sequence_length and frames_count < sequence_length:
-                print(f'Omitting {frames_dir} because it contains only {frames_count} upper_frames '
-                      f'and sequence length is set to {sequence_length}')
+    def __iter__(self):
+        while True:
+            background_index = random.randint(0, len(self.background_dataset) - 1)
+            foreground_index = random.randint(0, len(self.foreground_dataset) - 1)
+
+            background_image = self.background_dataset[background_index]
+            foreground_image, foreground_annotation = self.foreground_dataset[foreground_index]
+
+            # 0 is background mask
+            annotation_id = random.randint(0, _max_annotation_id(foreground_annotation))
+            if annotation_id == 0:
+                foreground_mask = _random_mask(foreground_annotation.size)
             else:
-                self.considered_videos.append(frames_dir)
+                foreground_mask = annotation_to_mask(foreground_annotation, annotation_id)
 
-    def __getitem__(self, index: int):
-        frames = []
-        frame_dir = self.considered_videos[index]
-        frame_paths = sorted(glob.glob(f'{frame_dir}/*'))
-        frame_paths = frame_paths[:self.sequence_length] if self.sequence_length else frame_paths
-        for frame_path in frame_paths:
-            frame = load_image(frame_path, self.frame_type)
+            input_image = _paste_object(background_image, foreground_image, foreground_mask)
+            mask = foreground_mask
+            target_image = background_image
             if self.transform is not None:
-                frame = self.transform(frame)
-            frames.append(frame)
-        return frames
-
-    def __len__(self) -> int:
-        return len(self.considered_videos)
+                input_image, mask, target_image = self.transform(input_image, mask, target_image)
+            yield input_image, mask, target_image
 
 
-class VideoObjectRemovalDataset(Dataset):
+class VideoObjectRemovalDataset(IterableDataset):
 
-    def __init__(self, images_dataset, masks_dataset, transform=None):
-        self.images_dataset = images_dataset
-        self.masks_dataset = masks_dataset
+    def __init__(self, background_dataset: ImageDataset, foreground_dataset: MergeDataset, transform=None):
+        self.background_dataset = background_dataset
+        self.foreground_dataset = foreground_dataset
         self.transform = transform
-        if len(self.images_dataset) != len(self.masks_dataset):
-            raise ValueError('Lengths of images dataset and masks dataset don\'t match')
+        if len(self.background_dataset) != len(self.foreground_dataset):
+            raise ValueError('Lengths of background dataset and foreground dataset don\'t match')
 
-    def __getitem__(self, index: int):
-        b = index
-        f = len(self.images_dataset) - 1 - index
+    def __iter__(self):
+        while True:
+            background_index = random.randint(0, len(self.background_dataset) - 1)
+            foreground_index = random.randint(0, len(self.foreground_dataset) - 1)
 
-        background_images = self.images_dataset[b]
-        foreground_images = self.images_dataset[f]
-        foreground_masks = self.masks_dataset[f]
+            background_images = self.background_dataset[background_index]
+            foreground_images, foreground_annotations = self.foreground_dataset[foreground_index]
 
-        input_images = VideoObjectRemovalDataset.paste_object_to_sequence(background_images, foreground_images,
-                                                                          foreground_masks)
-        masks = foreground_masks[:len(input_images)]
-        target_images = background_images[:len(input_images)]
-        if self.transform is not None:
-            input_images = [self.transform(i) for i in input_images]
-            masks = [self.transform(m) for m in masks]
-            target_images = [self.transform(t) for t in target_images]
-        return input_images, masks, target_images
+            # 0 is background mask
+            annotation_id = random.randint(1, max([_max_annotation_id(a) for a in foreground_annotations]))
+            if annotation_id == 0:
+                foreground_masks = [_random_mask(foreground_annotations[0].size)] * len(foreground_annotations)
+            else:
+                foreground_masks = [annotation_to_mask(a, annotation_id) for a in foreground_annotations]
 
-    @staticmethod
-    def paste_object_to_sequence(background_images, foreground_images, foreground_masks):
-        combined_images = []
-        for background_image, foreground_image, foreground_mask in zip(background_images, foreground_images,
-                                                                       foreground_masks):
-            assert foreground_image.size == background_image.size == foreground_mask.size
-            combined_image = background_image.copy()
-            combined_image.paste(foreground_image, mask=foreground_mask)
-            combined_images.append(combined_image)
-        return combined_images
-
-    def __len__(self) -> int:
-        return len(self.images_dataset)
+            input_images = [_paste_object(bi, fi, fm) for bi, fi, fm in
+                            zip(background_images, foreground_images, foreground_masks)]
+            masks = foreground_masks[:len(input_images)]
+            target_images = background_images[:len(input_images)]
+            if self.transform is not None:
+                input_images, masks, target_images = self.transform(input_images, masks, target_images)
+            yield input_images, masks, target_images
 
 
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
-    from torchvision import transforms
+    import inpainting.transforms as T
 
-    dataset = VideoDataset(['data/raw/DAVIS/JPEGImages/480p/butterfly'], 4,
-                           transform=transforms.Compose([
-                               transforms.Resize((854, 480)),
-                               transforms.ToTensor()
+    dataset = VideoDataset(list(glob.glob('../data/raw/DAVIS/JPEGImages/*')),
+                           sample_type='image',
+                           sequence_length=3,
+                           transform=T.Compose([
+                               T.ToTensor()
                            ]))
     dataloader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=4)
-    for i_batch, sample_batched in enumerate(dataloader):
-        print(i_batch, sample_batched)
+    sample = next(iter(dataloader))
+    for i, s in enumerate(sample):
+        save_image(make_grid(s), f'{i:03d}.jpg')
+    print(f'Number of batches: {len(dataloader)}')
+    print(f'Sequence length: {len(sample)}')
+    print(f'Tensor size: {sample[0].size()}')
