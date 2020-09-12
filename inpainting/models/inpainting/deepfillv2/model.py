@@ -13,4 +13,4 @@ class DeepFillV2Model(torch.nn.Module):
 
     def forward(self, image, mask):
         masked_image = image * (1 - mask)
-        return self.model(masked_image, mask)[1]
+        return masked_image + self.model(masked_image, mask)[1] * mask

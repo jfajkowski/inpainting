@@ -185,9 +185,12 @@ class InpaintSANet(torch.nn.Module):
             input_imgs = torch.cat([masked_imgs, masks, torch.full_like(masks, 1.)], dim=1)
         else:
             input_imgs = torch.cat([masked_imgs, img_exs, masks, torch.full_like(masks, 1.)], dim=1)
-        x = self.refine_conv_net(input_imgs)
+        x = F.interpolate(input_imgs, scale_factor=1/2)
+        x = self.refine_conv_net(x)
         x = self.refine_upsample_net(x)
+        x = F.interpolate(x, scale_factor=2)
         x = torch.clamp(x, -1., 1.)
+        x = imgs * (1 - masks) + x * masks
         return coarse_x, x
 
 class InpaintSADirciminator(nn.Module):

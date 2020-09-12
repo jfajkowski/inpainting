@@ -14,4 +14,4 @@ class DeepFillV1Model(torch.nn.Module):
     def forward(self, image, mask):
         masked_image = image * (1 - mask)
         small_mask = torch.nn.functional.interpolate(mask, scale_factor=1 / 8, mode='nearest')
-        return self.model(masked_image, mask, small_mask)[1]
+        return masked_image + self.model(masked_image, mask, small_mask)[1] * mask
