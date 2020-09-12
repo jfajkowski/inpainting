@@ -366,9 +366,9 @@ class Network(torch.nn.Module):
 # end
 # end
 class LiteFlowNetModel(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, path):
         super().__init__()
-        self.model = Network('models/external/liteflownet/network-default.pytorch')
+        self.model = Network(path)
 
     def forward(self, image_1, image_2):
         return estimate_flow(self.model, image_1, image_2)

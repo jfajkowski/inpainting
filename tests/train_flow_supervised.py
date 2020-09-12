@@ -1,6 +1,7 @@
 import glob
 
 import cv2 as cv
+import flowiz as fz
 import pytorch_lightning as pl
 import torchvision
 from PIL import Image
@@ -10,9 +11,10 @@ from torch.nn.init import kaiming_normal_, constant_
 from torch.utils.data import DataLoader
 
 from inpainting.external.deepflowguidedvideoinpainting.flownet2.submodules import *
+from torchvision.transforms.functional import to_tensor
+
 from inpainting.load import MergeDataset, VideoDataset
 from inpainting.utils import mean_and_std, denormalize, normalize_flow, warp_tensor
-from inpainting.visualize import flow_to_image_tensor
 import inpainting.transforms as T
 
 
@@ -183,9 +185,12 @@ class FlowModel(pl.LightningModule):
         flow_predict = self.restore(self.flow_predict).detach().cpu()
         warped_true = warp_tensor(second, flow_true).cpu()
         warped_predict = warp_tensor(second, flow_predict).cpu()
+        tensor = flow_true[0]
+        tensor1 = flow_predict[0]
         x = torch.cat([
             first[0].unsqueeze(0), second[0].unsqueeze(0),
-            flow_to_image_tensor(flow_true[0]).unsqueeze(0), flow_to_image_tensor(flow_predict[0]).unsqueeze(0),
+            to_tensor(fz.convert_from_flow(tensor.numpy().transpose(1, 2, 0))).unsqueeze(0), to_tensor(fz.convert_from_flow(
+                tensor1.numpy().transpose(1, 2, 0))).unsqueeze(0),
             warped_true[0].unsqueeze(0), warped_predict[0].unsqueeze(0),
         ], dim=0)
         grid = torchvision.utils.make_grid(x)

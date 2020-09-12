@@ -7,7 +7,7 @@ import inpainting.transforms as T
 from inpainting.models.algorithms import SiamMaskVideoTrackingAlgorithm, SingleFrameVideoInpaintingAlgorithm, \
     StableVideoInpaintingAlgorithm, FlowGuidedVideoInpaintingAlgorithm
 from inpainting.load import VideoDataset
-from inpainting.utils import tensor_to_cv_image, cv_image_to_tensor, tensor_to_cv_mask, dilate_tensor
+from inpainting.utils import tensor_to_cv_image, cv_image_to_tensor, tensor_to_cv_mask, dilate
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--images-dir', type=str, default='data/raw/DAVIS/JPEGImages/rollerblade')
@@ -57,7 +57,7 @@ with torch.no_grad():
 
     for image in image_sequence:
         mask = tracking_algorithm.find_mask(image).unsqueeze(0).cuda()
-        mask = dilate_tensor(mask, 3, 3)
+        mask = dilate(mask, 3, 3)
         image = image.unsqueeze(0).cuda()
         output = inpainting_algorithm.inpaint_online(image, mask)
 

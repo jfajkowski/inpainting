@@ -1,20 +1,14 @@
 import glob
 
-import cv2 as cv
 import pytorch_lightning as pl
-import torchvision
 from PIL import Image
-from spatial_correlation_sampler import spatial_correlation_sample
 from torch.nn import functional as F
-from torch.nn.init import kaiming_normal_, constant_
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.utils import make_grid
 
 from inpainting.external.deepflowguidedvideoinpainting.flownet2.submodules import *
-from inpainting.load import MergeDataset, VideoDataset, VideoObjectRemovalDataset
-from inpainting.utils import mean_and_std, denormalize, normalize_flow, warp_tensor
-from inpainting.visualize import flow_to_image_tensor
+from inpainting.load import VideoDataset, VideoObjectRemovalDataset
 
 
 class InpaintingModel(pl.LightningModule):

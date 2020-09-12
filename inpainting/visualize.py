@@ -5,6 +5,7 @@ import cv2 as cv
 import flowiz as fz
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import torch
 from PIL import Image
 from torchvision.transforms.functional import to_pil_image, to_tensor
 from torchvision.utils import make_grid
@@ -15,14 +16,6 @@ DEBUG = False
 DEBUG_PATH = 'debug'
 
 
-def flow_to_image_tensor(tensor):
-    return to_tensor(flow_to_pil_image(tensor))
-
-
-def flow_to_pil_image(tensor):
-    return Image.fromarray(fz.convert_from_flow(tensor.numpy().transpose(1, 2, 0)))
-
-
 def debug(tensor, name, denormalization_function=None):
     if DEBUG:
         if denormalization_function:
@@ -30,7 +23,7 @@ def debug(tensor, name, denormalization_function=None):
 
         example = tensor[0].cpu()
         if 'flow' in name:
-            image = flow_to_pil_image(example)
+            image = flow_tensor_to_image_tensor(example)
         else:
             image = to_pil_image(example)
         image.save(f'{DEBUG_PATH}/{name}.png')
@@ -40,7 +33,20 @@ def tensor_to_pil_image(tensor):
     assert 3 <= len(tensor.size()) <= 4
     if len(tensor.size()) == 4:
         tensor = make_grid(tensor)
-    return to_pil_image(tensor.cpu())
+    return to_pil_image(tensor.detach().cpu())
+
+
+def flow_tensor_to_image_tensor(tensor):
+    assert 3 <= len(tensor.size()) <= 4
+
+    if len(tensor.size()) == 4:
+        b, _, h, w = tensor.size()
+        result = torch.zeros((b, 3, h, w))
+        for i in range(b):
+            result[i, :, :, :] = flow_tensor_to_image_tensor(tensor[i, :, :, :])
+        return result
+
+    return to_tensor(fz.convert_from_flow(tensor.detach().cpu().numpy().transpose(1, 2, 0)))
 
 
 def animate_sequence(*args):

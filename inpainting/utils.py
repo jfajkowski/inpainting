@@ -95,8 +95,8 @@ def denormalize_flow(flow):
     return flow
 
 
-def dilate_tensor(x, size, iterations=1):
-    structuring_element = torch.ones((size, size)).view(1, 1, size, size).cuda()
+def dilate(x, size=3, iterations=3):
+    structuring_element = torch.ones((size, size)).view(1, 1, size, size).to(x.device)
     for i in range(iterations):
         x = (F.conv2d(x, structuring_element, stride=1, padding=(size // 2, size // 2)) > 0).float()
     return x

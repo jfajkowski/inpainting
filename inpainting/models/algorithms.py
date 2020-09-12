@@ -7,7 +7,7 @@ from inpainting.models.inpainting.deepfillv1.DeepFill import DeepFillV1Model
 from inpainting.models.flow.liteflownet.model import LiteFlowNetModel
 from inpainting.models.inpainting.kernel_inpainting import inpaint
 from inpainting.models.utils import make_grid, warp_tensor
-from inpainting.utils import dilate_tensor
+from inpainting.utils import dilate
 
 import numpy as np
 import cv2 as cv
