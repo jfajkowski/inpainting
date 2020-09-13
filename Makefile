@@ -8,8 +8,10 @@
 
 HEIGHT = 256
 WIDTH = 512
-MIN_PRESENCE = 0.75
-MIN_MEAN_SIZE = 0.10
+SAMPLES = 100
+SEED = 42
+MIN_PRESENCE = 0.5
+MIN_MEAN_SIZE = 0.05
 MAX_MEAN_SIZE = 0.25
 
 #################################################################################
@@ -55,6 +57,8 @@ $(PROCESSED_DIR)/%/InputImages $(PROCESSED_DIR)/%/Masks $(PROCESSED_DIR)/%/Targe
                                                --annotations-dir $(word 2,$^) \
                                                --object-stats-dir $(word 3,$^) \
                                                --processed-dir $(dir $@) \
+                                               --samples $(SAMPLES) \
+                                               --seed $(SEED) \
                                                --min-presence $(MIN_PRESENCE) \
                                                --min-mean-size $(MIN_MEAN_SIZE) \
                                                --max-mean-size $(MAX_MEAN_SIZE)

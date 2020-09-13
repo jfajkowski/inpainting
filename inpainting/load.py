@@ -1,12 +1,7 @@
 import glob
-import random
-import numpy as np
-import cv2 as cv
 
 from PIL import Image
-from torch.utils.data import Dataset, IterableDataset
-
-from inpainting.utils import annotation_to_mask
+from torch.utils.data import Dataset
 
 
 def load_frame(image_path: str, image_type: str):
@@ -81,72 +76,3 @@ class MergeDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.datasets[0])
-
-
-def _random_mask(size):
-    h, w = size
-    s = random.choice([h, w])
-    min_points, max_points = 1, s // 5
-    min_thickness, max_thickness = 1, s // 5
-    min_angle_dir, max_angle_dir = 0, 2 * np.pi
-    min_angle_fold, max_angle_fold = - np.pi / 2, np.pi / 2
-    min_length, max_length = 1, s // 5
-
-    mask = np.zeros((h, w), dtype='int')
-    points = random.randint(min_points, max_points)
-    thickness = random.randint(min_thickness, max_thickness)
-
-    prev_x = random.randint(0, w)
-    prev_y = random.randint(0, h)
-
-    angle_dir = random.uniform(min_angle_dir, max_angle_dir)
-    for i in range(points):
-        angle_fold = random.uniform(min_angle_fold, max_angle_fold)
-        angle = angle_dir + angle_fold
-        length = random.randint(min_length, max_length)
-        x = int(prev_x + length * np.sin(angle))
-        y = int(prev_y + length * np.cos(angle))
-        mask = cv.line(mask, (prev_x, prev_y), (x, y), color=255, thickness=thickness)
-        prev_x = x
-        prev_y = y
-    return Image.fromarray(mask).convert('L')
-
-
-def _paste_object(background_image, foreground_image, foreground_mask):
-    assert foreground_image.size == background_image.size == foreground_mask.size
-    combined_image = background_image.copy()
-    combined_image.paste(foreground_image, mask=foreground_mask)
-    return combined_image
-
-
-class VideoObjectRemovalDataset(IterableDataset):
-
-    def __init__(self, background_dataset: SequenceDataset, foreground_dataset: MergeDataset, transform=None):
-        self.background_dataset = background_dataset
-        self.foreground_dataset = foreground_dataset
-        self.transform = transform
-        if len(self.background_dataset) != len(self.foreground_dataset):
-            raise ValueError('Lengths of background dataset and foreground dataset don\'t match')
-
-    def __iter__(self):
-        while True:
-            background_index = random.randint(0, len(self.background_dataset) - 1)
-            foreground_index = random.randint(0, len(self.foreground_dataset) - 1)
-
-            background_images = self.background_dataset[background_index]
-            foreground_images, foreground_annotations = self.foreground_dataset[foreground_index]
-
-            # 0 is background mask
-            annotation_id = random.choice(set([_max_annotation_id(a) for a in foreground_annotations]))
-            if annotation_id == 0:
-                foreground_masks = [_random_mask(foreground_annotations[0].size)] * len(foreground_annotations)
-            else:
-                foreground_masks = [annotation_to_mask(a, annotation_id) for a in foreground_annotations]
-
-            input_images = [_paste_object(bi, fi, fm) for bi, fi, fm in
-                            zip(background_images, foreground_images, foreground_masks)]
-            masks = foreground_masks[:len(input_images)]
-            target_images = background_images[:len(input_images)]
-            if self.transform is not None:
-                input_images, masks, target_images = self.transform(input_images, masks, target_images)
-            yield input_images, masks, target_images
