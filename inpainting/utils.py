@@ -28,7 +28,7 @@ def mask_to_bbox(mask):
 
 
 def tensor_to_cv_image(image_tensor: torch.Tensor, rgb2bgr: bool = True):
-    mat = (image_tensor * 255).type(torch.uint8).squeeze().permute(1, 2, 0).numpy()
+    mat = (image_tensor * 255).type(torch.uint8).squeeze().permute(1, 2, 0).cpu().numpy()
     if rgb2bgr:
         mat = cv.cvtColor(mat, cv.COLOR_RGB2BGR)
     return mat
@@ -104,13 +104,13 @@ def dilate(x, size=3, iterations=3):
 
 def warp_tensor(x, flow):
     assert x.size()[-2:] == flow.size()[-2:]
-    grid = _make_grid(x.size()).to(x.device)
+    grid = make_grid(x.size()).to(x.device)
     grid += 2 * flow
     grid = grid.permute(0, 2, 3, 1)
     return F.grid_sample(x, grid, mode='bilinear', padding_mode='zeros', align_corners=True)
 
 
-def _make_grid(size, normalized=True):
+def make_grid(size, normalized=True):
     b, _, h, w = size
     x_ = torch.arange(w).view(1, -1).expand(h, -1)
     y_ = torch.arange(h).view(-1, 1).expand(-1, w)

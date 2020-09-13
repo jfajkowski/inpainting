@@ -6,8 +6,11 @@
 # PARAMETERS                                                                    #
 #################################################################################
 
-WIDTH = 256
 HEIGHT = 256
+WIDTH = 512
+MIN_PRESENCE = 0.75
+MIN_MEAN_SIZE = 0.10
+MAX_MEAN_SIZE = 0.25
 
 #################################################################################
 # GLOBALS                                                                       #
@@ -17,9 +20,9 @@ RAW_DIR = data/raw
 INTERIM_DIR = data/interim
 PROCESSED_DIR = data/processed
 RESULTS_DIR = results
-DATASETS = $(PROCESSED_DIR)/DAVIS $(PROCESSED_DIR)/demo
-RESULTS = $(RESULTS_DIR)/DAVIS/results.txt $(RESULTS_DIR)/demo/results.txt
-DEMO = $(PROCESSED_DIR)/demo $(RESULTS_DIR)/demo/results.txt
+DATASETS = $(PROCESSED_DIR)/DAVIS
+RESULTS = $(RESULTS_DIR)/DAVIS
+DEMO = $(PROCESSED_DIR)/demo $(RESULTS_DIR)/demo
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -47,83 +50,66 @@ data: $(DATASETS)
 
 $(PROCESSED_DIR)/% : $(PROCESSED_DIR)/%/InputImages $(PROCESSED_DIR)/%/Masks $(PROCESSED_DIR)/%/TargetImages ;
 
-$(PROCESSED_DIR)/%/InputImages $(PROCESSED_DIR)/%/Masks $(PROCESSED_DIR)/%/TargetImages &: $(INTERIM_DIR)/%/ResizedJPEGImages $(INTERIM_DIR)/%/ResizedMasks
-	python scripts/data/prepare_vor_dataset.py --images-dir $(word 1,$^) --masks-dir $(word 2,$^) --output-dir $(dir $@)
+$(PROCESSED_DIR)/%/InputImages $(PROCESSED_DIR)/%/Masks $(PROCESSED_DIR)/%/TargetImages &: $(INTERIM_DIR)/%/ResizedJPEGImages $(INTERIM_DIR)/%/ResizedAnnotations $(INTERIM_DIR)/%/ObjectStats
+	python scripts/data/prepare_vor_dataset.py --images-dir $(word 1,$^) \
+                                               --annotations-dir $(word 2,$^) \
+                                               --object-stats-dir $(word 3,$^) \
+                                               --processed-dir $(dir $@) \
+                                               --min-presence $(MIN_PRESENCE) \
+                                               --min-mean-size $(MIN_MEAN_SIZE) \
+                                               --max-mean-size $(MAX_MEAN_SIZE)
 
-$(INTERIM_DIR)/%/ResizedMasks: $(INTERIM_DIR)/%/ResizedAnnotations
-	python scripts/data/masks/extract_masks.py --input-dir $(word 1,$^) --output-dir $@ --index 1
+$(INTERIM_DIR)/%/ObjectStats: $(INTERIM_DIR)/%/ResizedAnnotations
+	python scripts/data/calculate_object_stats.py --annotations-dir $(word 1,$^) \
+                                                  --object-stats-dir $@
 
 $(INTERIM_DIR)/%/ResizedAnnotations: $(RAW_DIR)/%/Annotations
-	python scripts/data/resize_frames.py --input-dir $(word 1,$^) --output-dir $@ --size $(WIDTH) $(HEIGHT) --type 'annotation'
+	python scripts/data/resize_frames.py --frames-dir $(word 1,$^) \
+                                         --interim-dir $@ \
+                                         --size $(WIDTH) $(HEIGHT) \
+                                         --frame-type 'annotation'
 
 $(INTERIM_DIR)/%/ResizedJPEGImages: $(RAW_DIR)/%/JPEGImages
-	python scripts/data/resize_frames.py --input-dir $(word 1,$^) --output-dir $@ --size $(WIDTH) $(HEIGHT) --type 'image'
+	python scripts/data/resize_frames.py --frames-dir $(word 1,$^) \
+                                         --interim-dir $@ \
+                                         --size $(WIDTH) $(HEIGHT) \
+                                         --frame-type 'image'
 
 
 ## Evaluate
 evaluate: $(RESULTS)
 
-$(RESULTS_DIR)/%/results.txt: $(RESULTS_DIR)/%/End2End/mean.txt $(RESULTS_DIR)/%/Inpainter/mean.txt $(RESULTS_DIR)/%/Tracker/mean.txt
-	cat $^ > $@
+$(RESULTS_DIR)/% : $(RESULTS_DIR)/%/End2End/Evaluation $(RESULTS_DIR)/%/Inpainter/Evaluation $(RESULTS_DIR)/%/Tracker/Evaluation ;
 
-$(RESULTS_DIR)/%/End2End/mean.txt: $(RESULTS_DIR)/%/End2End/OutputImages $(PROCESSED_DIR)/%/TargetImages
-	python scripts/evaluate_inpainter.py --output-images-dir $(word 1,$^) --target-images-dir $(word 2,$^) --results-dir $(dir $@)
+$(RESULTS_DIR)/%/End2End/Evaluation: $(RESULTS_DIR)/%/End2End/OutputImages $(PROCESSED_DIR)/%/TargetImages
+	python scripts/evaluate.py --output-frames-dir $(word 1,$^) \
+                               --target-frames-dir $(word 2,$^) \
+                               --results-dir $(dir $@) \
+                               --mode inpainting
 
-$(RESULTS_DIR)/%/Inpainter/mean.txt: $(RESULTS_DIR)/%/Inpainter/OutputImages $(PROCESSED_DIR)/%/TargetImages
-	python scripts/evaluate_inpainter.py --output-images-dir $(word 1,$^) --target-images-dir $(word 2,$^) --results-dir $(dir $@)
+$(RESULTS_DIR)/%/Inpainter/Evaluation: $(RESULTS_DIR)/%/Inpainter/OutputImages $(PROCESSED_DIR)/%/TargetImages
+	python scripts/evaluate.py --output-frames-dir $(word 1,$^) \
+                               --target-frames-dir $(word 2,$^) \
+                               --results-dir $(dir $@) \
+                               --mode inpainting
 
-$(RESULTS_DIR)/%/Tracker/mean.txt: $(RESULTS_DIR)/%/Tracker/OutputMasks $(PROCESSED_DIR)/%/Masks
-	python scripts/evaluate_tracker.py --output-masks-dir $(word 1,$^) --target-masks-dir $(word 2,$^) --results-dir $(dir $@)
+$(RESULTS_DIR)/%/Tracker/Evaluation: $(RESULTS_DIR)/%/Tracker/OutputMasks $(PROCESSED_DIR)/%/Masks
+	python scripts/evaluate.py --output-frames-dir $(word 1,$^) \
+                               --target-frames-dir $(word 2,$^) \
+                               --results-dir $(dir $@) \
+                               --mode segmentation
 
 $(RESULTS_DIR)/%/End2End/OutputImages: $(PROCESSED_DIR)/%/InputImages $(RESULTS_DIR)/%/Tracker/OutputMasks
-	python -W ignore::UserWarning scripts/infer_inpainter.py --input-images-dir $(word 1,$^) --input-masks-dir $(word 2,$^) --results-dir $(dir $@)
+	python scripts/infer_inpainting.py --input-images-dir $(word 1,$^) \
+									   --input-masks-dir $(word 2,$^) \
+									   --results-dir $(dir $@)
 
 $(RESULTS_DIR)/%/Inpainter/OutputImages: $(PROCESSED_DIR)/%/InputImages $(PROCESSED_DIR)/%/Masks
-	python -W ignore::UserWarning scripts/infer_inpainter.py --input-images-dir $(word 1,$^) --input-masks-dir $(word 2,$^) --results-dir $(dir $@)
+	python scripts/infer_inpainting.py --input-images-dir $(word 1,$^) \
+                                       --input-masks-dir $(word 2,$^) \
+                                       --results-dir $(dir $@)
 
 $(RESULTS_DIR)/%/Tracker/OutputMasks: $(PROCESSED_DIR)/%/InputImages $(PROCESSED_DIR)/%/Masks
-	python -W ignore::UserWarning scripts/infer_tracker.py --input-images-dir $(word 1,$^) --input-masks-dir $(word 2,$^) --results-dir $(dir $@)
-
-#################################################################################
-# Self Documenting Commands                                                     #
-#################################################################################
-
-.DEFAULT_GOAL := help
-.PHONY: help
-help:
-	@echo "$$(tput bold)Available rules:$$(tput sgr0)"
-	@echo
-	@sed -n -e "/^## / { \
-		h; \
-		s/.*//; \
-		:doc" \
-		-e "H; \
-		n; \
-		s/^## //; \
-		t doc" \
-		-e "s/:.*//; \
-		G; \
-		s/\\n## /---/; \
-		s/\\n/ /g; \
-		p; \
-	}" ${MAKEFILE_LIST} \
-	| LC_ALL='C' sort --ignore-case \
-	| awk -F '---' \
-		-v ncol=$$(tput cols) \
-		-v indent=19 \
-		-v col_on="$$(tput setaf 6)" \
-		-v col_off="$$(tput sgr0)" \
-	'{ \
-		printf "%s%*s%s ", col_on, -indent, $$1, col_off; \
-		n = split($$2, words, " "); \
-		line_length = ncol - indent; \
-		for (i = 1; i <= n; i++) { \
-			line_length -= length(words[i]) + 1; \
-			if (line_length <= 0) { \
-				line_length = ncol - indent - length(words[i]) - 1; \
-				printf "\n%*s ", -indent, " "; \
-			} \
-			printf "%s ", words[i]; \
-		} \
-		printf "\n"; \
-	}'
+	python scripts/infer_tracking.py --input-images-dir $(word 1,$^) \
+                                     --input-masks-dir $(word 2,$^) \
+                                     --results-dir $(dir $@)

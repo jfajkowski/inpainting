@@ -1,33 +1,27 @@
 import argparse
 import glob
-from os import makedirs
 from os.path import basename
 
 from PIL import Image
-from torchvision import transforms
 from tqdm import tqdm
 
-from inpainting.load import VideoDataset, save_sample
+from inpainting import transforms
+from inpainting.load import SequenceDataset
+from inpainting.visualize import save_frames
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--input-dir', type=str, default='data/raw/DAVIS/JPEGImages/480p')
-parser.add_argument('--output-dir', type=str, default='data/interim/DAVIS/JPEGImages')
-parser.add_argument('--size', type=int, nargs=2, default=(256, 256))
-parser.add_argument('--type', type=str, default='image')
+parser.add_argument('--frames-dir', type=str, default='data/raw/demo/JPEGImages')
+parser.add_argument('--interim-dir', type=str, default='data/interim/demo/ResizedJPEGImages')
+parser.add_argument('--size', type=int, nargs=2, default=(256, 512))
+parser.add_argument('--frame-type', type=str, default='image')
 opt = parser.parse_args()
 
-# Load and resize frames
-frame_dirs = list(glob.glob(f'{opt.input_dir}/*'))
-interpolation = Image.BILINEAR if opt.type == 'image' else Image.NEAREST
-frame_dataset = VideoDataset(frame_dirs, sample_type=opt.type,
-                             transform=transforms.Resize(opt.size[::-1], interpolation))
+frame_dirs = list(sorted(glob.glob(f'{opt.frames_dir}/*')))
+sequence_names = list(map(basename, frame_dirs))
 
-# Save resized frames
-for sequence_dir, sequence in tqdm(zip(frame_dirs, frame_dataset), desc='Resizing frames', unit='sequence',
-                                   total=len(frame_dirs)):
-    sequence_name = basename(sequence_dir)
-    image_o_dir = f'{opt.output_dir}/{sequence_name}'
-    makedirs(image_o_dir, exist_ok=True)
-    for frame_path, frame in zip(glob.glob(f'{sequence_dir}/*'), sequence):
-        frame_name = basename(frame_path)
-        save_sample(frame, f'{image_o_dir}/{frame_name}', opt.type)
+frames_dataset = SequenceDataset(frame_dirs, frame_type=opt.frame_type,
+                                 transform=transforms.Resize(opt.size[::-1]))
+
+for sample_name, frames in tqdm(zip(sequence_names, frames_dataset), desc='Resizing frames', unit='sequence',
+                                total=len(frame_dirs)):
+    save_frames(frames, f'{opt.interim_dir}/{sample_name}', opt.frame_type)

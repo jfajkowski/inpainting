@@ -4,13 +4,13 @@ import cv2 as cv
 import torch
 
 import inpainting.transforms as T
-from inpainting.models.algorithms import SiamMaskVideoTrackingAlgorithm, SingleFrameVideoInpaintingAlgorithm, \
-    StableVideoInpaintingAlgorithm, FlowGuidedVideoInpaintingAlgorithm
-from inpainting.load import VideoDataset
-from inpainting.utils import tensor_to_cv_image, cv_image_to_tensor, tensor_to_cv_mask, dilate
+from inpainting.algorithms import VideoTrackingAlgorithm, SingleFrameVideoInpaintingAlgorithm, \
+    FlowGuidedVideoInpaintingAlgorithm
+from inpainting.load import SequenceDataset
+from inpainting.utils import tensor_to_cv_image, cv_image_to_tensor, tensor_to_cv_mask
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--images-dir', type=str, default='data/raw/DAVIS/JPEGImages/rollerblade')
+parser.add_argument('--images-dir', type=str, default='data/raw/DAVIS/JPEGImages/tennis')
 parser.add_argument('--show-mask', type=bool, default=True)
 parser.add_argument('--size', type=int, nargs=2, default=(512, 256))
 opt = parser.parse_args()
@@ -34,7 +34,7 @@ if opt.images_dir == 'camera':
 
     image_sequence = camera_generator()
 else:
-    images_dataset = VideoDataset(
+    images_dataset = SequenceDataset(
         [opt.images_dir],
         'image',
         transform=T.Compose([
@@ -51,13 +51,13 @@ x, y, w, h = cv.selectROI('Demo', tensor_to_cv_image(init_image), False, False)
 init_rect = ((x, y), (x + w, y + h))
 
 with torch.no_grad():
-    tracking_algorithm = SiamMaskVideoTrackingAlgorithm(mask_type='segmentation')
+    tracking_algorithm = VideoTrackingAlgorithm()
     tracking_algorithm.initialize(init_image, init_rect)
-    inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm()
+    inpainting_algorithm = SingleFrameVideoInpaintingAlgorithm()
+    # inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm()
 
     for image in image_sequence:
         mask = tracking_algorithm.find_mask(image).unsqueeze(0).cuda()
-        mask = dilate(mask, 3, 3)
         image = image.unsqueeze(0).cuda()
         output = inpainting_algorithm.inpaint_online(image, mask)
 

@@ -1,7 +1,4 @@
-from os import makedirs
-
 import pandas as pd
-import torch
 from skimage.metrics import mean_squared_error, structural_similarity, peak_signal_noise_ratio
 
 from .metrics import db_eval_iou, db_eval_boundary
@@ -31,25 +28,3 @@ def evaluate_inpainting(target_images, output_images):
             'structural_similarity': float(structural_similarity(target_image, output_image, multichannel=True))
         })
     return pd.DataFrame(results)
-
-
-def evaluate_flow_estimation(target_flows, output_flows):
-    results = []
-    for t, (target_flow, output_flow) in enumerate(zip(target_flows, output_flows)):
-        target_flow, output_flow = tensor_to_cv_image(target_flow), tensor_to_cv_image(output_flow)
-        results.append({
-            't': t,
-            'endpoint_error': float(torch.cdist(target_flow, output_flow))
-        })
-    return pd.DataFrame(results)
-
-
-def save_stats(df, dir):
-    makedirs(dir, exist_ok=True)
-    print(df.mean(), file=open(f'{dir}/mean.txt', mode='w'))
-    print(df.median(), file=open(f'{dir}/median.txt', mode='w'))
-
-
-def save_results(df, dir):
-    makedirs(dir, exist_ok=True)
-    df.to_csv(f'{dir}/results.csv', index=False)
