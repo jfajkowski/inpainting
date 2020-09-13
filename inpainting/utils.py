@@ -6,7 +6,7 @@ from torch.nn import functional as F
 from PIL import Image
 
 
-def annotation_to_mask(image, object_id=0):
+def annotation_to_mask(image, object_id=1):
     image = np.array(image)
     mask = np.zeros(image.shape, dtype=np.uint8)
     mask[image == object_id] = 255

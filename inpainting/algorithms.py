@@ -15,10 +15,6 @@ from inpainting.utils import make_grid, warp_tensor
 
 import numpy as np
 import torch
-from inpainting.tracking.siammask.config_helper import load_config
-from inpainting.tracking.siammask.custom import Custom
-from inpainting.tracking.siammask.load_helper import load_pretrain
-from inpainting.tracking.siammask.test import siamese_init, siamese_track
 from inpainting.utils import mask_tensor, invert_mask, tensor_to_cv_image
 
 
