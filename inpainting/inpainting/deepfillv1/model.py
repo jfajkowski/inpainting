@@ -1,6 +1,6 @@
 import torch
 
-from inpainting.utils import normalize, denormalize
+from inpainting.utils import normalize_image, denormalize_image
 from .DeepFill import Generator
 
 
@@ -12,8 +12,8 @@ class DeepFillV1Model(torch.nn.Module):
         self.model.load_state_dict(weights)
 
     def forward(self, image, mask):
-        image = normalize(image)
+        image = normalize_image(image)
         masked_image = image * (1 - mask)
         small_mask = torch.nn.functional.interpolate(mask, scale_factor=1 / 8, mode='nearest')
         result = masked_image + self.model(masked_image, mask, small_mask)[1] * mask
-        return denormalize(result)
+        return denormalize_image(result)

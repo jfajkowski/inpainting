@@ -53,6 +53,8 @@ def save_frame(frame, path, frame_type='image', roi=None):
             frame = tensor_to_cv_image(frame)
         elif frame_type == 'mask':
             frame = tensor_to_cv_mask(frame)
+        elif frame_type == 'flow':
+            frame = tensor_to_cv_image(flow_tensor_to_image_tensor(frame))
         else:
             raise ValueError(frame_type)
 

@@ -371,35 +371,7 @@ class LiteFlowNetModel(torch.nn.Module):
         self.model = Network(path)
 
     def forward(self, image_1, image_2):
-        return estimate_flow(self.model, image_1, image_2)
-
-
-def estimate_flow(model, x_1, x_2):
-    assert (x_1.size(2) == x_2.size(2))
-    assert (x_1.size(3) == x_2.size(3))
-
-    height = x_1.size(2)
-    width = x_1.size(3)
-
-    preprocessed_width = int(math.floor(math.ceil(width / 64.0) * 64.0))
-    preprocessed_height = int(math.floor(math.ceil(height / 64.0) * 64.0))
-
-    # Convert to BGR
-    x_1 = x_1.flip(1)
-    x_2 = x_2.flip(1)
-
-    tensor_preprocessed_first = torch.nn.functional.interpolate(input=x_1,
-                                                                size=(preprocessed_height, preprocessed_width),
-                                                                mode='bilinear', align_corners=False)
-    tensor_preprocessed_second = torch.nn.functional.interpolate(input=x_2,
-                                                                 size=(preprocessed_height, preprocessed_width),
-                                                                 mode='bilinear', align_corners=False)
-
-    flow = torch.nn.functional.interpolate(
-        input=model(tensor_preprocessed_first, tensor_preprocessed_second), size=(height, width),
-        mode='bilinear', align_corners=False)
-
-    flow[:, 0, :, :] *= float(width) / float(preprocessed_width)
-    flow[:, 1, :, :] *= float(height) / float(preprocessed_height)
-
-    return flow
+        # Convert to BGR
+        image_1 = image_1.flip(1)
+        image_2 = image_2.flip(1)
+        return self.model(image_1, image_2)

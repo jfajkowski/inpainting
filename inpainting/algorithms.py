@@ -11,11 +11,12 @@ from inpainting.inpainting.kernel_inpainting import Inpainter
 from inpainting.inpainting.pconvunet.model import PConvUNetModel
 from inpainting.inpainting.region_fill import inpaint
 from inpainting.tracking.siammask.model import SiamMaskModel
-from inpainting.utils import make_grid, warp_tensor
+from inpainting.utils import make_grid, warp_tensor, normalize_flow, dilate_mask
 
 import numpy as np
 import torch
-from inpainting.utils import mask_tensor, invert_mask, tensor_to_cv_image
+from inpainting.utils import invert_mask, tensor_to_cv_image
+from inpainting.visualize import save_frame
 
 
 class VideoInpaintingAlgorithm(abc.ABC):
@@ -56,9 +57,10 @@ class SingleFrameVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
 
 
 class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
-    def __init__(self, eps=5, flow_model='FlowNet2', flow_inpainting_model='RegionFill',
-                 image_inpainting_model='DeepFillv1'):
+    def __init__(self, eps=1, flow_model='FlowNet2', image_inpainting_model='DeepFillv1'):
         super().__init__(image_inpainting_model)
+
+        self.eps = eps
 
         if flow_model == 'FlowNet2':
             self.flow_model = FlowNet2Model('models/flow/flownet2/FlowNet2_checkpoint.pth.tar').cuda().eval()
@@ -69,7 +71,6 @@ class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
         else:
             raise ValueError(flow_model)
 
-        self.eps = eps
         self.previous_mask = None
         self.previous_image = None
         self.previous_mask_result = None
@@ -84,33 +85,46 @@ class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
         self.previous_available = False
 
     def inpaint_online(self, current_image: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
-        current_mask = invert_mask(current_mask)
 
         if self.previous_available:
             forward_flow = self.flow_model(self.previous_image, current_image)
-            forward_flow_filled = inpaint(forward_flow, invert_mask(self.previous_mask))
+            forward_flow_filled = normalize_flow(inpaint(forward_flow, self.previous_mask))
 
             backward_flow = self.flow_model(current_image, self.previous_image)
-            backward_flow_filled = inpaint(backward_flow, invert_mask(current_mask))
+            backward_flow_filled = normalize_flow(inpaint(backward_flow, current_mask))
 
-            grid = make_grid(forward_flow.size(), normalized=False).to(current_image.device)
+            grid = make_grid(current_image.size(), normalized=False).to(current_image.device)
             backward_grid = warp_tensor(grid, backward_flow_filled)
             forward_grid = warp_tensor(backward_grid, forward_flow_filled)
             flow_propagation_error = forward_grid - grid
-            connected_pixels_mask = (torch.norm(flow_propagation_error, 2, dim=1) < self.eps).float().unsqueeze(1)
+            connected_pixels_mask = invert_mask(
+                (warp_tensor(self.previous_mask_result, backward_flow_filled) > 0).float()) \
+                                    * (torch.norm(flow_propagation_error, 2, dim=1) < self.eps).float().unsqueeze(1)
 
-            current_mask_warped = (warp_tensor(connected_pixels_mask * self.previous_mask_result,
-                                               backward_flow_filled) > 0).float()
-            current_image_warped = warp_tensor(self.previous_image_result, backward_flow_filled)
+            current_image_result = current_image * invert_mask(current_mask) \
+                                   + warp_tensor(self.previous_image_result,
+                                                 backward_flow_filled) * connected_pixels_mask * current_mask
+            current_mask_result = current_mask - connected_pixels_mask * current_mask
 
-            current_mask_result = current_mask + current_mask_warped * (invert_mask(current_mask))
-            current_image_result = current_image * current_mask + current_image_warped * current_mask_warped * (
-                invert_mask(current_mask))
+            # save_frame(current_image, 'debug/a.jpg', frame_type='image')
+            # save_frame(current_mask, 'debug/b.png', frame_type='mask')
+            # save_frame(self.previous_image, 'debug/c.jpg', frame_type='image')
+            # save_frame(self.previous_mask, 'debug/d.png', frame_type='mask')
+            # save_frame(forward_flow, 'debug/e.jpg', frame_type='flow')
+            # save_frame(forward_flow_filled, 'debug/f.jpg', frame_type='flow')
+            # save_frame(backward_flow, 'debug/g.jpg', frame_type='flow')
+            # save_frame(backward_flow_filled, 'debug/h.jpg', frame_type='flow')
+            # save_frame(connected_pixels_mask, 'debug/i.png', frame_type='mask')
+            # save_frame(self.previous_image_result, 'debug/j.jpg', frame_type='image')
+            # save_frame(self.previous_mask_result, 'debug/k.png', frame_type='mask')
+            # save_frame(current_image_result, 'debug/l.jpg', frame_type='image')
+            # save_frame(current_mask_result, 'debug/m.png', frame_type='mask')
         else:
             current_mask_result = current_mask
-            current_image_result = mask_tensor(current_image, current_mask)
+            current_image_result = current_image
 
-        current_image_result = super().inpaint_online(current_image_result, invert_mask(current_mask_result))
+        current_image_result = super().inpaint_online(current_image_result, current_mask_result)
+        # save_frame(current_image_result, 'debug/n.jpg', frame_type='image')
 
         self.previous_mask = current_mask
         self.previous_image = current_image

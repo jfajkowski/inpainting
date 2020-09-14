@@ -35,7 +35,7 @@ def tensor_to_cv_image(image_tensor: torch.Tensor, rgb2bgr: bool = True):
 
 
 def tensor_to_cv_mask(mask_tensor: torch.Tensor):
-    return (mask_tensor * 255).type(torch.uint8).squeeze().numpy()
+    return (mask_tensor * 255).type(torch.uint8).squeeze().cpu().numpy()
 
 
 def cv_image_to_tensor(mat: np.ndarray, bgr2rgb: bool = True):
@@ -44,16 +44,12 @@ def cv_image_to_tensor(mat: np.ndarray, bgr2rgb: bool = True):
     return torch.from_numpy(mat).float().permute(2, 0, 1) / 255
 
 
-def mask_tensor(x, m):
-    return x * m
-
-
 def invert_mask(m):
     return 1 - m
 
 
-def normalize(x, mode='standard'):
-    mean, std = mean_and_std(mode)
+def normalize_image(x, mode='standard'):
+    mean, std = _mean_and_std(mode)
     y = x.clone()
     y[:, 0, :, :] = (y[:, 0, :, :] - mean[0]) / std[0]
     y[:, 1, :, :] = (y[:, 1, :, :] - mean[1]) / std[1]
@@ -61,8 +57,8 @@ def normalize(x, mode='standard'):
     return y
 
 
-def denormalize(y, mode='standard'):
-    mean, std = mean_and_std(mode)
+def denormalize_image(y, mode='standard'):
+    mean, std = _mean_and_std(mode)
     x = y.clone()
     x[:, 0, :, :] = x[:, 0, :, :] * std[0] + mean[0]
     x[:, 1, :, :] = x[:, 1, :, :] * std[1] + mean[1]
@@ -70,7 +66,7 @@ def denormalize(y, mode='standard'):
     return torch.clamp(x, 0, 1)
 
 
-def mean_and_std(mode='standard'):
+def _mean_and_std(mode='standard'):
     if mode == 'imagenet':
         return [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
     elif mode == 'standard':
@@ -82,20 +78,20 @@ def mean_and_std(mode='standard'):
 
 
 def normalize_flow(flow):
-    h, w, _ = flow.shape
-    flow[:, :, 0] /= float(w)
-    flow[:, :, 1] /= float(h)
+    _, _, h, w = flow.size()
+    flow[:, 0, :, :] /= float(w)
+    flow[:, 1, :, :] /= float(h)
     return flow
 
 
 def denormalize_flow(flow):
-    h, w, _ = flow.shape
-    flow[:, :, 0] *= float(w)
-    flow[:, :, 1] *= float(h)
+    _, _, h, w = flow.size()
+    flow[:, 0, :, :] *= float(w)
+    flow[:, 1, :, :] *= float(h)
     return flow
 
 
-def dilate(x, size=3, iterations=3):
+def dilate_mask(x, size=3, iterations=3):
     structuring_element = torch.ones((size, size)).view(1, 1, size, size).to(x.device)
     for i in range(iterations):
         x = (F.conv2d(x, structuring_element, stride=1, padding=(size // 2, size // 2)) > 0).float()
@@ -104,7 +100,7 @@ def dilate(x, size=3, iterations=3):
 
 def warp_tensor(x, flow):
     assert x.size()[-2:] == flow.size()[-2:]
-    grid = make_grid(x.size()).to(x.device)
+    grid = make_grid(x.size(), normalized=True).to(x.device)
     grid += 2 * flow
     grid = grid.permute(0, 2, 3, 1)
     return F.grid_sample(x, grid, mode='bilinear', padding_mode='zeros', align_corners=True)

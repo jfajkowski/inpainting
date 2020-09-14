@@ -12,7 +12,7 @@ from inpainting.utils import tensor_to_cv_image, cv_image_to_tensor, tensor_to_c
 parser = argparse.ArgumentParser()
 parser.add_argument('--images-dir', type=str, default='data/raw/DAVIS/JPEGImages/tennis')
 parser.add_argument('--show-mask', type=bool, default=True)
-parser.add_argument('--size', type=int, nargs=2, default=(512, 256))
+parser.add_argument('--size', type=int, nargs=2, default=(192, 384))
 opt = parser.parse_args()
 
 image_sequence = None
@@ -38,7 +38,7 @@ else:
         [opt.images_dir],
         'image',
         transform=T.Compose([
-            T.Resize(opt.size[::-1]),
+            T.Resize(opt.size),
             T.ToTensor()
         ])
     )
@@ -46,19 +46,20 @@ else:
 
 # Select ROI
 cv.namedWindow('Demo', cv.WND_PROP_FULLSCREEN)
-init_image = next(image_sequence)
+init_image = next(image_sequence).cuda()
 x, y, w, h = cv.selectROI('Demo', tensor_to_cv_image(init_image), False, False)
 init_rect = ((x, y), (x + w, y + h))
 
 with torch.no_grad():
     tracking_algorithm = VideoTrackingAlgorithm()
     tracking_algorithm.initialize(init_image, init_rect)
-    inpainting_algorithm = SingleFrameVideoInpaintingAlgorithm()
-    # inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm()
+    # inpainting_algorithm = SingleFrameVideoInpaintingAlgorithm()
+    inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm()
 
     for image in image_sequence:
-        mask = tracking_algorithm.find_mask(image).unsqueeze(0).cuda()
-        image = image.unsqueeze(0).cuda()
+        image = image.cuda()
+        mask = tracking_algorithm.track_online(image).cuda().unsqueeze(0)
+        image = image.unsqueeze(0)
         output = inpainting_algorithm.inpaint_online(image, mask)
 
         output = tensor_to_cv_image(output.cpu())

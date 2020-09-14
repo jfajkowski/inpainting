@@ -15,8 +15,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--input-images-dir', type=str, default='data/processed/demo/InputImages')
 parser.add_argument('--input-masks-dir', type=str, default='data/processed/demo/Masks')
 parser.add_argument('--results-dir', type=str, default='results/demo/Inpainter')
+parser.add_argument('--flow-guided', type=bool, default=True)
+parser.add_argument('--flow-model', type=str, default='FlowNet2')
+parser.add_argument('--image-inpainting-model', type=str, default='DeepFillv1')
 opt = parser.parse_args()
-
 
 input_images_dirs = list(sorted(glob.glob(f'{opt.input_images_dir}/*')))
 input_masks_dirs = list(sorted(glob.glob(f'{opt.input_masks_dir}/*')))
@@ -33,8 +35,15 @@ input_masks_dataset = SequenceDataset(
 dataset = MergeDataset([input_images_dataset, input_masks_dataset], transform=transforms.ToTensor())
 
 with torch.no_grad():
-    inpainting_algorithm = SingleFrameVideoInpaintingAlgorithm()
-    # inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm()
+    if opt.flow_guided:
+        inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm(
+            flow_model=opt.flow_model,
+            image_inpainting_model=opt.image_inpainting_model
+        )
+    else:
+        inpainting_algorithm = SingleFrameVideoInpaintingAlgorithm(
+            image_inpainting_model=opt.image_inpainting_model
+        )
 
     for sequence_name, (input_images, input_masks) in tqdm(zip(sequence_names, dataset), desc='Inpainting',
                                                            unit='sequence', total=len(sequence_names)):
