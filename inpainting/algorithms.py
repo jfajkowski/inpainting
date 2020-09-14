@@ -35,29 +35,39 @@ class VideoInpaintingAlgorithm(abc.ABC):
 
 
 class SingleFrameVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
-    def __init__(self):
-        self.image_inpainting_model = inpaint
-        # self.image_inpainting_model = Inpainter()
-        # self.image_inpainting_model = DeepFillV1Model('models/inpainting/deepfillv1/imagenet_deepfill.pth').cuda().eval()
-        # self.image_inpainting_model = DeepFillV2Model('models/inpainting/deepfillv2/latest_ckpt.pth.tar').cuda().eval()
-        # self.image_inpainting_model = PConvUNetModel('models/inpainting/pconvunet/1000000.pth').cuda().eval()
+    def __init__(self, image_inpainting_model='DeepFillV1'):
+        if image_inpainting_model == 'RegionFill':
+            self.image_inpainting_model = inpaint
+        elif image_inpainting_model == 'KernelFill':
+            self.image_inpainting_model = Inpainter()
+        elif image_inpainting_model == 'DeepFillv1':
+            self.image_inpainting_model = DeepFillV1Model(
+                'models/inpainting/deepfillv1/imagenet_deepfill.pth').cuda().eval()
+        elif image_inpainting_model == 'DeepFillv2':
+            self.image_inpainting_model = DeepFillV2Model(
+                'models/inpainting/deepfillv2/latest_ckpt.pth.tar').cuda().eval()
+        elif image_inpainting_model == 'PConvUNet':
+            self.image_inpainting_model = PConvUNetModel('models/inpainting/pconvunet/1000000.pth').cuda().eval()
+        else:
+            raise ValueError(image_inpainting_model)
 
     def inpaint_online(self, current_image: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
         return self.image_inpainting_model(current_image, current_mask)
 
 
 class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
-    def __init__(self, eps=5):
-        super().__init__()
-        self.flow_model = FlowNet2Model('models/flow/flownet2/FlowNet2_checkpoint.pth.tar').cuda().eval()
-        # self.flow_model = LiteFlowNetModel('models/flow/liteflownet/network-default.pytorch').cuda().eval()
-        # self.flow_model = PWCNetModel('models/flow/pwcnet/network-default.pytorch').cuda().eval()
+    def __init__(self, eps=5, flow_model='FlowNet2', flow_inpainting_model='RegionFill',
+                 image_inpainting_model='DeepFillv1'):
+        super().__init__(image_inpainting_model)
 
-        self.flow_inpainting_model = inpaint
-        # self.flow_inpainting_model = Inpainter()
-        # self.flow_inpainting_model = DeepFillV1Model('models/external/deepfillv1/imagenet_deepfill.pth').cuda().eval()
-        # self.flow_inpainting_model = DeepFillV2Model('models/external/deepfillv2/latest_ckpt.pth.tar').cuda().eval()
-        # self.flow_inpainting_model = PConvUNetModel('models/external/pconvunet/1000000.pth').cuda().eval()
+        if flow_model == 'FlowNet2':
+            self.flow_model = FlowNet2Model('models/flow/flownet2/FlowNet2_checkpoint.pth.tar').cuda().eval()
+        elif flow_model == 'LiteFlowNet':
+            self.flow_model = LiteFlowNetModel('models/flow/liteflownet/network-default.pytorch').cuda().eval()
+        elif flow_model == 'PWCNet':
+            self.flow_model = PWCNetModel('models/flow/pwcnet/network-default.pytorch').cuda().eval()
+        else:
+            raise ValueError(flow_model)
 
         self.eps = eps
         self.previous_mask = None
@@ -78,10 +88,10 @@ class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
 
         if self.previous_available:
             forward_flow = self.flow_model(self.previous_image, current_image)
-            forward_flow_filled = self.flow_inpainting_model(forward_flow, invert_mask(self.previous_mask))
+            forward_flow_filled = inpaint(forward_flow, invert_mask(self.previous_mask))
 
             backward_flow = self.flow_model(current_image, self.previous_image)
-            backward_flow_filled = self.flow_inpainting_model(backward_flow, invert_mask(current_mask))
+            backward_flow_filled = inpaint(backward_flow, invert_mask(current_mask))
 
             grid = make_grid(forward_flow.size(), normalized=False).to(current_image.device)
             backward_grid = warp_tensor(grid, backward_flow_filled)
@@ -89,7 +99,8 @@ class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
             flow_propagation_error = forward_grid - grid
             connected_pixels_mask = (torch.norm(flow_propagation_error, 2, dim=1) < self.eps).float().unsqueeze(1)
 
-            current_mask_warped = (warp_tensor(connected_pixels_mask * self.previous_mask_result, backward_flow_filled) > 0).float()
+            current_mask_warped = (warp_tensor(connected_pixels_mask * self.previous_mask_result,
+                                               backward_flow_filled) > 0).float()
             current_image_warped = warp_tensor(self.previous_image_result, backward_flow_filled)
 
             current_mask_result = current_mask + current_mask_warped * (invert_mask(current_mask))
