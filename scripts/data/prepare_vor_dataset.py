@@ -75,7 +75,7 @@ def _paste_object(background_image, foreground_image, foreground_mask):
     return combined_image
 
 
-for background_index, (foreground_index, foreground_object_stats_row) in tqdm(candidates, desc='Preparing VOD dataset',
+for background_index, (foreground_index, foreground_object_stats_row) in tqdm(candidates, desc='Preparing VOR dataset',
                                                                               unit='sequence'):
     background_sequence_name = sequence_names[background_index]
     background_images = images_dataset[background_index]
