@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='external',
+    name='inpainting',
     version='1.0.0',
     url='',
     author='',
     author_email='',
     description='',
-    packages=find_packages(), install_requires=['Pillow']
+    packages=find_packages()
 )

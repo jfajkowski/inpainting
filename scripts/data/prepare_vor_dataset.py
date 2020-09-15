@@ -11,8 +11,8 @@ from inpainting.utils import annotation_to_mask
 from inpainting.visualize import save_frames
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--images-dir', type=str, default='data/interim/demo/ResizedJPEGImages')
-parser.add_argument('--annotations-dir', type=str, default='data/interim/demo/ResizedAnnotations')
+parser.add_argument('--images-dir', type=str, default='data/interim/demo/AdjustedJPEGImages')
+parser.add_argument('--annotations-dir', type=str, default='data/interim/demo/AdjustedAnnotations')
 parser.add_argument('--object-stats-dir', type=str, default='data/interim/demo/ObjectStats')
 parser.add_argument('--processed-dir', type=str, default='data/processed/demo')
 parser.add_argument('--samples', type=int, default=100)

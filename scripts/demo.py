@@ -3,7 +3,7 @@ import argparse
 import cv2 as cv
 import torch
 
-import inpainting.transforms as T
+from inpainting import transforms
 from inpainting.algorithms import VideoTrackingAlgorithm, SingleFrameVideoInpaintingAlgorithm, \
     FlowGuidedVideoInpaintingAlgorithm
 from inpainting.load import SequenceDataset
@@ -12,7 +12,7 @@ from inpainting.utils import tensor_to_cv_image, cv_image_to_tensor, tensor_to_c
 parser = argparse.ArgumentParser()
 parser.add_argument('--images-dir', type=str, default='data/raw/DAVIS/JPEGImages/tennis')
 parser.add_argument('--show-mask', type=bool, default=True)
-parser.add_argument('--size', type=int, nargs=2, default=(192, 384))
+parser.add_argument('--size', type=int, nargs=2, default=(512, 256))
 opt = parser.parse_args()
 
 image_sequence = None
@@ -24,11 +24,11 @@ if opt.images_dir == 'camera':
             return str(cap.get(cv.CAP_PROP_FRAME_WIDTH)), str(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
 
         cap = cv.VideoCapture(0)
-        set_res(cap, *opt.size[::-1])
+        set_res(cap, *opt.size)
 
         while True:
             _, image = cap.read()
-            image = cv.resize(image, opt.size[::-1])
+            image = cv.resize(image, opt.size)
             yield cv_image_to_tensor(image)
 
 
@@ -37,9 +37,9 @@ else:
     images_dataset = SequenceDataset(
         [opt.images_dir],
         'image',
-        transform=T.Compose([
-            T.Resize(opt.size),
-            T.ToTensor()
+        transform=transforms.Compose([
+            transforms.Resize(opt.size),
+            transforms.ToTensor()
         ])
     )
     image_sequence = iter(images_dataset[0])

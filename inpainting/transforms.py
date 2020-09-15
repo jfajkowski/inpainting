@@ -48,6 +48,15 @@ class ToTensor(Transform):
         return F.to_tensor(sample)
 
 
+class CenterCrop(Transform):
+
+    def __init__(self, size):
+        self.size = size
+
+    def transform_sample(self, sample, params):
+        return F.center_crop(sample, self.size)
+
+
 class Resize(Transform):
 
     def __init__(self, size, interpolation=Image.BILINEAR):

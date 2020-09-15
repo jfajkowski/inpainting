@@ -36,29 +36,29 @@ class VideoInpaintingAlgorithm(abc.ABC):
 
 
 class SingleFrameVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
-    def __init__(self, image_inpainting_model='DeepFillV1'):
-        if image_inpainting_model == 'RegionFill':
+    def __init__(self, inpainting_model='DeepFillV1'):
+        if inpainting_model == 'RegionFill':
             self.image_inpainting_model = inpaint
-        elif image_inpainting_model == 'KernelFill':
+        elif inpainting_model == 'KernelFill':
             self.image_inpainting_model = Inpainter()
-        elif image_inpainting_model == 'DeepFillv1':
+        elif inpainting_model == 'DeepFillv1':
             self.image_inpainting_model = DeepFillV1Model(
                 'models/inpainting/deepfillv1/imagenet_deepfill.pth').cuda().eval()
-        elif image_inpainting_model == 'DeepFillv2':
+        elif inpainting_model == 'DeepFillv2':
             self.image_inpainting_model = DeepFillV2Model(
                 'models/inpainting/deepfillv2/latest_ckpt.pth.tar').cuda().eval()
-        elif image_inpainting_model == 'PConvUNet':
+        elif inpainting_model == 'PConvUNet':
             self.image_inpainting_model = PConvUNetModel('models/inpainting/pconvunet/1000000.pth').cuda().eval()
         else:
-            raise ValueError(image_inpainting_model)
+            raise ValueError(inpainting_model)
 
     def inpaint_online(self, current_image: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
         return self.image_inpainting_model(current_image, current_mask)
 
 
 class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
-    def __init__(self, eps=1, flow_model='FlowNet2', image_inpainting_model='DeepFillv1'):
-        super().__init__(image_inpainting_model)
+    def __init__(self, eps=1, flow_model='FlowNet2', inpainting_model='DeepFillv1'):
+        super().__init__(inpainting_model)
 
         self.eps = eps
 

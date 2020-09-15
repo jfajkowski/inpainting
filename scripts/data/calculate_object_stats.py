@@ -10,7 +10,7 @@ from inpainting.load import SequenceDataset
 from inpainting.visualize import save_dataframe
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--annotations-dir', type=str, default='data/interim/demo/ResizedAnnotations')
+parser.add_argument('--annotations-dir', type=str, default='data/interim/demo/AdjustedAnnotations')
 parser.add_argument('--object-stats-dir', type=str, default='data/interim/demo/ObjectStats')
 opt = parser.parse_args()
 

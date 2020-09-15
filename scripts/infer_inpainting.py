@@ -17,7 +17,7 @@ parser.add_argument('--input-masks-dir', type=str, default='data/processed/demo/
 parser.add_argument('--results-dir', type=str, default='results/demo/Inpainter')
 parser.add_argument('--flow-guided', type=bool, default=True)
 parser.add_argument('--flow-model', type=str, default='FlowNet2')
-parser.add_argument('--image-inpainting-model', type=str, default='DeepFillv1')
+parser.add_argument('--inpainting-model', type=str, default='DeepFillv1')
 opt = parser.parse_args()
 
 input_images_dirs = list(sorted(glob.glob(f'{opt.input_images_dir}/*')))
@@ -38,11 +38,11 @@ with torch.no_grad():
     if opt.flow_guided:
         inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm(
             flow_model=opt.flow_model,
-            image_inpainting_model=opt.image_inpainting_model
+            inpainting_model=opt.inpainting_model
         )
     else:
         inpainting_algorithm = SingleFrameVideoInpaintingAlgorithm(
-            image_inpainting_model=opt.image_inpainting_model
+            inpainting_model=opt.inpainting_model
         )
 
     for sequence_name, (input_images, input_masks) in tqdm(zip(sequence_names, dataset), desc='Inpainting',
