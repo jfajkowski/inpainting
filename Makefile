@@ -51,7 +51,7 @@ $(DATA_PROCESSED_DIR)/InputImages $(DATA_PROCESSED_DIR)/Masks $(DATA_PROCESSED_D
                                                --annotations-dir $(word 2,$^) \
                                                --object-stats-dir $(word 3,$^) \
                                                --processed-dir $(dir $@) \
-                                               --samples $(SAMPLES) \
+                                               --limit-samples $(SAMPLES) \
                                                --seed $(SEED) \
                                                --min-presence $(MIN_PRESENCE) \
                                                --min-mean-size $(MIN_MEAN_SIZE) \
