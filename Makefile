@@ -1,4 +1,4 @@
-.PHONY: all install data tracking inpainting end2end
+.PHONY: all install data tracking inpainting end2end videos
 .SECONDARY: ## Save all intermediate files
 
 #################################################################################
@@ -68,7 +68,7 @@ $(DATA_INTERIM_DIR)/AdjustedAnnotations : $(DATA_RAW_DIR)/Annotations
                                          --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
                                          --frame-type 'annotation'
 
-$(DATA_INTERIM_DIR)/AdjustedJPEGImages: $(DATA_RAW_DIR)/JPEGImages
+$(DATA_INTERIM_DIR)/AdjustedJPEGImages : $(DATA_RAW_DIR)/JPEGImages
 	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
                                          --interim-dir $@ \
                                          --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
@@ -97,16 +97,18 @@ inpainting : $(RESULTS_INPAINTING_DIR)
 
 $(RESULTS_INPAINTING_DIR) : $(RESULTS_INPAINTING_DIR)/Evaluation $(RESULTS_INPAINTING_DIR)/OutputImages
 
-$(RESULTS_INPAINTING_DIR)/Evaluation: $(RESULTS_INPAINTING_DIR)/OutputImages $(DATA_PROCESSED_DIR)/TargetImages
+$(RESULTS_INPAINTING_DIR)/Evaluation : $(RESULTS_INPAINTING_DIR)/OutputImages $(DATA_PROCESSED_DIR)/TargetImages
 	python scripts/evaluate.py --output-frames-dir $(word 1,$^) \
                                --target-frames-dir $(word 2,$^) \
                                --results-dir $(dir $@) \
                                --mode inpainting
 
-$(RESULTS_INPAINTING_DIR)/OutputImages: $(DATA_PROCESSED_DIR)/InputImages $(DATA_PROCESSED_DIR)/Masks
+$(RESULTS_INPAINTING_DIR)/OutputImages : $(DATA_PROCESSED_DIR)/InputImages $(DATA_PROCESSED_DIR)/Masks
 	python scripts/infer_inpainting.py --input-images-dir $(word 1,$^) \
                                        --input-masks-dir $(word 2,$^) \
-                                       --results-dir $(dir $@)
+                                       --results-dir $(dir $@) \
+                                       --inpainting-model $(INPAINTING_MODEL) \
+                                       --flow-model $(FLOW_MODEL)
 
 
 ## End2End
@@ -115,13 +117,49 @@ end2end : $(RESULTS_END2END_DIR)
 
 $(RESULTS_END2END_DIR) : $(RESULTS_END2END_DIR)/Evaluation $(RESULTS_END2END_DIR)/OutputImages
 
-$(RESULTS_END2END_DIR)/Evaluation: $(RESULTS_END2END_DIR)/OutputImages $(DATA_PROCESSED_DIR)/TargetImages
+$(RESULTS_END2END_DIR)/Evaluation : $(RESULTS_END2END_DIR)/OutputImages $(DATA_PROCESSED_DIR)/TargetImages
 	python scripts/evaluate.py --output-frames-dir $(word 1,$^) \
                                --target-frames-dir $(word 2,$^) \
                                --results-dir $(dir $@) \
                                --mode inpainting
 
-$(RESULTS_END2END_DIR)/OutputImages: $(DATA_PROCESSED_DIR)/InputImages $(RESULTS_TRACKING_DIR)/OutputMasks
+$(RESULTS_END2END_DIR)/OutputImages : $(DATA_PROCESSED_DIR)/InputImages $(RESULTS_TRACKING_DIR)/OutputMasks
 	python scripts/infer_inpainting.py --input-images-dir $(word 1,$^) \
                                        --input-masks-dir $(word 2,$^) \
-                                       --results-dir $(dir $@)
+                                       --results-dir $(dir $@) \
+                                       --inpainting-model $(INPAINTING_MODEL) \
+                                       --flow-model $(FLOW_MODEL)
+
+## Videos
+videos : $(DATA_PROCESSED_DIR)/InputImageVideos $(DATA_PROCESSED_DIR)/MaskVideos $(DATA_PROCESSED_DIR)/TargetImageVideos \
+         $(RESULTS_TRACKING_DIR)/OutputMaskVideos $(RESULTS_INPAINTING_DIR)/OutputImageVideos $(RESULTS_END2END_DIR)/OutputImageVideos
+
+$(DATA_PROCESSED_DIR)/InputImageVideos : $(DATA_PROCESSED_DIR)/InputImages
+	python scripts/convert_to_videos.py --frames-dir $^ \
+	                                    --videos-dir $@ \
+	                                    --frame-type 'image'
+
+$(DATA_PROCESSED_DIR)/MaskVideos : $(DATA_PROCESSED_DIR)/Masks
+	python scripts/convert_to_videos.py --frames-dir $^ \
+	                                    --videos-dir $@ \
+	                                    --frame-type 'mask'
+
+$(DATA_PROCESSED_DIR)/TargetImageVideos : $(DATA_PROCESSED_DIR)/TargetImages
+	python scripts/convert_to_videos.py --frames-dir $^ \
+	                                    --videos-dir $@ \
+	                                    --frame-type 'image'
+
+$(RESULTS_TRACKING_DIR)/OutputMaskVideos : $(RESULTS_TRACKING_DIR)/OutputMasks
+	python scripts/convert_to_videos.py --frames-dir $^ \
+	                                    --videos-dir $@ \
+	                                    --frame-type 'mask'
+
+$(RESULTS_INPAINTING_DIR)/OutputImageVideos : $(RESULTS_INPAINTING_DIR)/OutputImages
+	python scripts/convert_to_videos.py --frames-dir $^ \
+	                                    --videos-dir $@ \
+	                                    --frame-type 'image'
+
+$(RESULTS_END2END_DIR)/OutputImageVideos : $(RESULTS_END2END_DIR)/OutputImages
+	python scripts/convert_to_videos.py --frames-dir $^ \
+	                                    --videos-dir $@ \
+	                                    --frame-type 'image'

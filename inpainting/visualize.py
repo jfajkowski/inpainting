@@ -33,9 +33,7 @@ def flow_tensor_to_image_tensor(tensor):
 
 def save_frames(frames, dir, frame_type='image'):
     extension = None
-    if frame_type == 'image':
-        extension = 'jpg'
-    elif frame_type == 'mask' or frame_type == 'annotation':
+    if frame_type == 'image' or frame_type == 'mask' or frame_type == 'annotation':
         extension = 'png'
     else:
         ValueError(frame_type)
@@ -65,7 +63,7 @@ def save_frame(frame, path, frame_type='image', roi=None):
         cv.imwrite(path, frame)
 
 
-def save_video(frames, path, frame_type='image', frame_rate=24, codec=cv.VideoWriter_fourcc(*'H264')):
+def save_video(frames, path, frame_type='image', frame_rate=24, codec=cv.VideoWriter_fourcc(*'avc1')):
     height, width = frames[0].shape[-2], frames[0].shape[-1]
 
     if frame_type == 'image':

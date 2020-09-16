@@ -7,10 +7,10 @@ from .utils import tensor_to_cv_image
 
 def evaluate_segmentation(target_masks, output_masks):
     results = []
-    for t, (target_mask, output_mask) in enumerate(zip(target_masks, output_masks)):
+    for frame_id, (target_mask, output_mask) in enumerate(zip(target_masks, output_masks)):
         target_mask, output_mask = target_mask.numpy(), output_mask.numpy()
         results.append({
-            't': t,
+            'frame_id': frame_id,
             'region_similarity': float(db_eval_iou(target_mask, output_mask)),
             'contour_accuracy': float(db_eval_boundary(target_mask, output_mask))
         })
@@ -19,10 +19,10 @@ def evaluate_segmentation(target_masks, output_masks):
 
 def evaluate_inpainting(target_images, output_images):
     results = []
-    for t, (target_image, output_image) in enumerate(zip(target_images, output_images)):
+    for frame_id, (target_image, output_image) in enumerate(zip(target_images, output_images)):
         target_image, output_image = tensor_to_cv_image(target_image), tensor_to_cv_image(output_image)
         results.append({
-            't': t,
+            'frame_id': frame_id,
             'mean_squared_error': float(mean_squared_error(target_image, output_image)),
             'peak_signal_noise_ratio': float(peak_signal_noise_ratio(target_image, output_image)),
             'structural_similarity': float(structural_similarity(target_image, output_image, multichannel=True))

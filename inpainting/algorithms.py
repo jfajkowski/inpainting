@@ -106,25 +106,25 @@ class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
                                                  backward_flow_filled) * connected_pixels_mask * current_mask
             current_mask_result = current_mask - connected_pixels_mask * current_mask
 
-            # save_frame(current_image, 'debug/a.jpg', frame_type='image')
+            # save_frame(current_image, 'debug/a.png', frame_type='image')
             # save_frame(current_mask, 'debug/b.png', frame_type='mask')
-            # save_frame(self.previous_image, 'debug/c.jpg', frame_type='image')
+            # save_frame(self.previous_image, 'debug/c.png', frame_type='image')
             # save_frame(self.previous_mask, 'debug/d.png', frame_type='mask')
-            # save_frame(forward_flow, 'debug/e.jpg', frame_type='flow')
-            # save_frame(forward_flow_filled, 'debug/f.jpg', frame_type='flow')
-            # save_frame(backward_flow, 'debug/g.jpg', frame_type='flow')
-            # save_frame(backward_flow_filled, 'debug/h.jpg', frame_type='flow')
+            # save_frame(forward_flow, 'debug/e.png', frame_type='flow')
+            # save_frame(forward_flow_filled, 'debug/f.png', frame_type='flow')
+            # save_frame(backward_flow, 'debug/g.png', frame_type='flow')
+            # save_frame(backward_flow_filled, 'debug/h.png', frame_type='flow')
             # save_frame(connected_pixels_mask, 'debug/i.png', frame_type='mask')
-            # save_frame(self.previous_image_result, 'debug/j.jpg', frame_type='image')
+            # save_frame(self.previous_image_result, 'debug/j.png', frame_type='image')
             # save_frame(self.previous_mask_result, 'debug/k.png', frame_type='mask')
-            # save_frame(current_image_result, 'debug/l.jpg', frame_type='image')
+            # save_frame(current_image_result, 'debug/l.png', frame_type='image')
             # save_frame(current_mask_result, 'debug/m.png', frame_type='mask')
         else:
             current_mask_result = current_mask
             current_image_result = current_image
 
         current_image_result = super().inpaint_online(current_image_result, current_mask_result)
-        # save_frame(current_image_result, 'debug/n.jpg', frame_type='image')
+        # save_frame(current_image_result, 'debug/n.png', frame_type='image')
 
         self.previous_mask = current_mask
         self.previous_image = current_image

@@ -9,8 +9,8 @@ from inpainting.load import SequenceDataset
 from inpainting.visualize import save_video
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--frames-dir', type=str, default='results/demo/End2End/OutputImages')
-parser.add_argument('--videos-dir', type=str, default='results/demo/End2End/OutputVideos')
+parser.add_argument('--frames-dir', type=str, default='results/inpainting/default/OutputImages')
+parser.add_argument('--videos-dir', type=str, default='results/inpainting/default/OutputVideos')
 parser.add_argument('--frame-type', type=str, default='image')
 parser.add_argument('--frame-rate', type=int, default=24)
 opt = parser.parse_args()

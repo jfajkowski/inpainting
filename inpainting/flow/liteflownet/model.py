@@ -374,4 +374,4 @@ class LiteFlowNetModel(torch.nn.Module):
         # Convert to BGR
         image_1 = image_1.flip(1)
         image_2 = image_2.flip(1)
-        return self.model(image_1, image_2)
+        return torch.nn.functional.interpolate(self.model(image_1, image_2), size=[image_1.size(2), image_1.size(3)])

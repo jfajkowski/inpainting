@@ -45,6 +45,6 @@ with torch.no_grad():
             output_mask = tracking_algorithm.track_online(input_image.cuda())
             output_masks.append(output_mask)
 
-        save_frame(initial_image, f'{opt.results_dir}/Initialization/{sequence_name}/initialization.jpg', 'image',
+        save_frame(initial_image, f'{opt.results_dir}/Initialization/{sequence_name}/initialization.png', 'image',
                    initial_roi)
         save_frames(output_masks, f'{opt.results_dir}/OutputMasks/{sequence_name}', 'mask')

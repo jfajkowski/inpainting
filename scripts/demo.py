@@ -54,7 +54,7 @@ with torch.no_grad():
     tracking_algorithm = VideoTrackingAlgorithm()
     tracking_algorithm.initialize(init_image, init_rect)
     # inpainting_algorithm = SingleFrameVideoInpaintingAlgorithm()
-    inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm()
+    inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm(flow_model='LiteFlowNet', inpainting_model='RegionFill')
 
     for image in image_sequence:
         image = image.cuda()
