@@ -36,7 +36,7 @@ class VideoInpaintingAlgorithm(abc.ABC):
 
 
 class SingleFrameVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
-    def __init__(self, inpainting_model='DeepFillV1'):
+    def __init__(self, inpainting_model='DeepFillv1'):
         if inpainting_model == 'RegionFill':
             self.image_inpainting_model = inpaint
         elif inpainting_model == 'KernelFill':

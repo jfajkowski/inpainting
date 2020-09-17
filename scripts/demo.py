@@ -38,7 +38,7 @@ else:
         [opt.images_dir],
         'image',
         transform=transforms.Compose([
-            transforms.Resize(opt.size),
+            transforms.Resize(opt.size[::-1]),
             transforms.ToTensor()
         ])
     )
@@ -54,7 +54,7 @@ with torch.no_grad():
     tracking_algorithm = VideoTrackingAlgorithm()
     tracking_algorithm.initialize(init_image, init_rect)
     # inpainting_algorithm = SingleFrameVideoInpaintingAlgorithm()
-    inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm(flow_model='LiteFlowNet', inpainting_model='RegionFill')
+    inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm()
 
     for image in image_sequence:
         image = image.cuda()
