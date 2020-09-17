@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 
 from inpainting import transforms
-from inpainting.evaluate import evaluate_inpainting, evaluate_segmentation
+from inpainting.evaluate import evaluate_inpainting, evaluate_segmentation, evaluate_flow_estimation
 from inpainting.load import SequenceDataset, MergeDataset
 from inpainting.visualize import save_dataframe
 
@@ -24,6 +24,9 @@ if opt.mode == 'segmentation':
 elif opt.mode == 'inpainting':
     sequence_type = 'image'
     evaluate = evaluate_inpainting
+elif opt.mode == 'flow_estimation':
+    sequence_type = 'flow'
+    evaluate = evaluate_flow_estimation
 else:
     raise ValueError(opt.mode)
 

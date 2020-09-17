@@ -1,6 +1,8 @@
 import math
 import numpy as np
 import cv2
+import torch
+from pytorch_msssim import ssim, ms_ssim
 
 
 def db_eval_iou(annotation, segmentation, void_pixels=None):
@@ -176,3 +178,7 @@ def _seg2bmap(seg, width=None, height=None):
                     bmap[j, i] = 1
 
     return bmap
+
+
+def endpoint_error(target_flow, output_flow):
+    return np.linalg.norm(target_flow - output_flow, ord=2).mean()

@@ -1,7 +1,7 @@
 import pandas as pd
 from skimage.metrics import mean_squared_error, structural_similarity, peak_signal_noise_ratio
 
-from .metrics import db_eval_iou, db_eval_boundary
+from .metrics import db_eval_iou, db_eval_boundary, endpoint_error
 from .utils import tensor_to_cv_image
 
 
@@ -13,6 +13,17 @@ def evaluate_segmentation(target_masks, output_masks):
             'frame_id': frame_id,
             'region_similarity': float(db_eval_iou(target_mask, output_mask)),
             'contour_accuracy': float(db_eval_boundary(target_mask, output_mask))
+        })
+    return pd.DataFrame(results)
+
+
+def evaluate_flow_estimation(target_flows, output_flows):
+    results = []
+    for frame_id, (target_flow, output_flow) in enumerate(zip(target_flows, output_flows)):
+        target_flow, output_flow = target_flow.numpy(), output_flow.numpy()
+        results.append({
+            'frame_id': frame_id,
+            'endpoint_error': endpoint_error(target_flow, output_flow)
         })
     return pd.DataFrame(results)
 
