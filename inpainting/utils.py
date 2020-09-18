@@ -1,9 +1,10 @@
 import cv2 as cv
 import numpy as np
 import torch
-
+import flowiz as fz
 from torch.nn import functional as F
 from PIL import Image
+from torchvision.transforms.functional import to_pil_image, to_tensor
 
 
 def annotation_to_mask(image, object_id=1):
@@ -15,7 +16,7 @@ def annotation_to_mask(image, object_id=1):
 
 def mask_to_bbox(mask):
     if isinstance(mask, torch.Tensor):
-        mask = tensor_to_cv_mask(mask.cpu())
+        mask = tensor_to_mask(mask.cpu())
     mask = np.array(mask)
     if np.any(mask):
         cols = np.any(mask, axis=0)
@@ -27,25 +28,55 @@ def mask_to_bbox(mask):
         return None
 
 
-def tensor_to_cv_image(image_tensor: torch.Tensor, rgb2bgr: bool = True):
+def convert_tensor(tensor: torch.Tensor, frame_type):
+    if frame_type == 'image':
+        return tensor_to_image(tensor)
+    elif frame_type == 'mask':
+        return tensor_to_mask(tensor)
+    elif frame_type == 'flow':
+        return tensor_to_flow(tensor)
+    else:
+        raise ValueError(frame_type)
+
+
+def tensor_to_image(image_tensor: torch.Tensor, rgb2bgr: bool = True):
     mat = (image_tensor * 255).type(torch.uint8).squeeze().permute(1, 2, 0).cpu().numpy()
     if rgb2bgr:
         mat = cv.cvtColor(mat, cv.COLOR_RGB2BGR)
     return mat
 
 
-def tensor_to_cv_mask(mask_tensor: torch.Tensor):
+def tensor_to_mask(mask_tensor: torch.Tensor):
     return (mask_tensor * 255).type(torch.uint8).squeeze().cpu().numpy()
 
 
-def cv_image_to_tensor(mat: np.ndarray, bgr2rgb: bool = True):
-    if bgr2rgb:
-        mat = cv.cvtColor(mat, cv.COLOR_BGR2RGB)
+def tensor_to_flow(flow_tensor: torch.Tensor):
+    return flow_tensor.detach().cpu().numpy().transpose(1, 2, 0)
+
+
+def cv_image_to_tensor(mat: np.ndarray):
+    mat = cv.cvtColor(mat, cv.COLOR_BGR2RGB)
     return torch.from_numpy(mat).float().permute(2, 0, 1) / 255
 
 
-def invert_mask(m):
-    return 1 - m
+def tensor_to_pil_image(tensor):
+    assert 3 <= len(tensor.size()) <= 4
+    if len(tensor.size()) == 4:
+        tensor = make_grid(tensor)
+    return to_pil_image(tensor.detach().cpu())
+
+
+def flow_tensor_to_image_tensor(tensor):
+    assert 3 <= len(tensor.size()) <= 4
+
+    if len(tensor.size()) == 4:
+        b, _, h, w = tensor.size()
+        result = torch.zeros((b, 3, h, w))
+        for i in range(b):
+            result[i, :, :, :] = flow_tensor_to_image_tensor(tensor[i, :, :, :])
+        return result
+
+    return to_tensor(fz.convert_from_flow(tensor_to_flow(tensor)))
 
 
 def normalize_image(x, mode='standard'):

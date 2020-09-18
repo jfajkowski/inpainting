@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from inpainting import transforms
 from inpainting.load import SequenceDataset
-from inpainting.visualize import save_video
+from inpainting.save import save_video
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--frames-dir', type=str, default='results/inpainting/default/OutputImages')

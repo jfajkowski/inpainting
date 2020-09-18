@@ -1,18 +1,28 @@
 import glob
-
+import flowiz as fz
+import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset
 
 
-def load_frame(image_path: str, image_type: str):
-    if image_type == 'image':
-        return Image.open(image_path).convert('RGB')
-    elif image_type == 'mask':
-        return Image.open(image_path).convert('L')
-    elif image_type == 'annotation':
-        return Image.open(image_path).convert('P')
+def load_frame(frame_path, frame_type):
+    if frame_type == 'image':
+        return Image.open(frame_path).convert('RGB')
+    elif frame_type == 'mask':
+        return Image.open(frame_path).convert('L')
+    elif frame_type == 'annotation':
+        return Image.open(frame_path).convert('P')
+    elif frame_type == 'flow':
+        return fz.read_flow(frame_path)
     else:
-        raise ValueError(image_type)
+        raise ValueError(frame_type)
+
+
+def load_dataframe(df_path):
+    try:
+        return pd.read_csv(df_path)
+    except pd.errors.EmptyDataError:
+        return None
 
 
 class SequenceDataset(Dataset):

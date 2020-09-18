@@ -8,7 +8,7 @@ from tqdm import tqdm
 from inpainting import transforms
 from inpainting.evaluate import evaluate_inpainting, evaluate_segmentation, evaluate_flow_estimation
 from inpainting.load import SequenceDataset, MergeDataset
-from inpainting.visualize import save_dataframe
+from inpainting.save import save_dataframe
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--output-frames-dir', type=str, default='results/demo/Tracker/OutputMasks')
@@ -18,7 +18,7 @@ parser.add_argument('--mode', type=str, default='segmentation')
 opt = parser.parse_args()
 
 
-if opt.mode == 'segmentation':
+if opt.mode == 'tracking_and_segmentation':
     sequence_type = 'mask'
     evaluate = evaluate_segmentation
 elif opt.mode == 'inpainting':

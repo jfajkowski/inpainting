@@ -5,6 +5,8 @@ import torch
 from PIL import Image
 from torchvision.transforms import functional as F
 
+from inpainting.utils import tensor_to_flow
+
 
 class Transform(abc.ABC):
 
@@ -50,21 +52,35 @@ class ToTensor(Transform):
 
 class CenterCrop(Transform):
 
-    def __init__(self, size):
+    def __init__(self, size, frame_type):
         self.size = size
+        self.frame_type = frame_type
 
     def transform_sample(self, sample, params):
+        if self.frame_type == 'flow':
+            _, image_width, image_height = sample.shape
+            crop_height, crop_width = self.size
+            crop_left = int(round((image_width - crop_width) / 2.))
+            crop_top = int(round((image_height - crop_height) / 2.))
+            return sample[:, crop_left:crop_left + crop_width, crop_top:crop_top + crop_height]
+
         return F.center_crop(sample, self.size)
 
 
 class Resize(Transform):
 
-    def __init__(self, size, interpolation=Image.BILINEAR):
+    def __init__(self, size, frame_type):
         self.size = size
-        self.interpolation = interpolation
+        self.frame_type = frame_type
 
     def transform_sample(self, sample, params):
-        return F.resize(sample, self.size, self.interpolation)
+        if self.frame_type == 'flow':
+            return tensor_to_flow(
+                (torch.nn.functional.interpolate(F.to_tensor(sample).unsqueeze(0), self.size)).squeeze(0))
+        elif self.frame_type == 'annotation' or self.frame_type == 'mask':
+            return F.resize(sample, self.size, Image.NEAREST)
+        else:
+            return F.resize(sample, self.size, Image.BILINEAR)
 
 
 class Lambda(Transform):

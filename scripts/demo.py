@@ -7,7 +7,7 @@ from inpainting import transforms
 from inpainting.algorithms import VideoTrackingAlgorithm, SingleFrameVideoInpaintingAlgorithm, \
     FlowGuidedVideoInpaintingAlgorithm
 from inpainting.load import SequenceDataset
-from inpainting.utils import tensor_to_cv_image, cv_image_to_tensor, tensor_to_cv_mask
+from inpainting.utils import tensor_to_image, cv_image_to_tensor, tensor_to_mask
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--images-dir', type=str, default='data/raw/DAVIS/JPEGImages/tennis')
@@ -47,7 +47,7 @@ else:
 # Select ROI
 cv.namedWindow('Demo', cv.WND_PROP_FULLSCREEN)
 init_image = next(image_sequence).cuda()
-x, y, w, h = cv.selectROI('Demo', tensor_to_cv_image(init_image), False, False)
+x, y, w, h = cv.selectROI('Demo', tensor_to_image(init_image), False, False)
 init_rect = ((x, y), (x + w, y + h))
 
 with torch.no_grad():
@@ -62,9 +62,9 @@ with torch.no_grad():
         image = image.unsqueeze(0)
         output = inpainting_algorithm.inpaint_online(image, mask)
 
-        output = tensor_to_cv_image(output.cpu())
+        output = tensor_to_image(output.cpu())
         if opt.show_mask:
-            mask = tensor_to_cv_mask(mask.cpu())
+            mask = tensor_to_mask(mask.cpu())
             contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
             output = cv.drawContours(output, contours, -1, (0, 255, 0), 1)
 

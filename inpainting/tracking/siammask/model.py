@@ -8,7 +8,7 @@ from inpainting.tracking.siammask.config_helper import load_config
 from inpainting.tracking.siammask.custom import Custom
 from inpainting.tracking.siammask.load_helper import load_pretrain
 from inpainting.tracking.siammask.test import siamese_init, siamese_track
-from inpainting.utils import tensor_to_cv_image
+from inpainting.utils import tensor_to_image
 
 
 class SiamMaskModel(torch.nn.Module):
@@ -25,7 +25,7 @@ class SiamMaskModel(torch.nn.Module):
 
     def initialize(self, image, roi):
         device = image.device
-        image = tensor_to_cv_image(image)
+        image = tensor_to_image(image)
         (x1, y1), (x2, y2) = roi
         w, h = x2 - x1, y2 - y1
         target_pos = np.array([x1 + w / 2, y1 + h / 2])
@@ -34,7 +34,7 @@ class SiamMaskModel(torch.nn.Module):
 
     def forward(self, image):
         device = image.device
-        image = tensor_to_cv_image(image)
+        image = tensor_to_image(image)
         self.state = siamese_track(self.state, image, mask_enable=True, refine_enable=True, device=device)
         mask = self.state['mask'] > self.state['p'].seg_thr
         return torch.tensor(mask).unsqueeze(0).float()

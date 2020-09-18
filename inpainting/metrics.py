@@ -181,4 +181,4 @@ def _seg2bmap(seg, width=None, height=None):
 
 
 def endpoint_error(target_flow, output_flow):
-    return np.linalg.norm(target_flow - output_flow, ord=2).mean()
+    return np.linalg.norm(target_flow - output_flow, ord=2, axis=0).mean()

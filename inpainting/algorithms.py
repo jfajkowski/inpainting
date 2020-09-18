@@ -1,22 +1,13 @@
 import abc
-from argparse import Namespace
 from typing import List
 
-from inpainting.flow.flownet2.model import FlowNet2Model
-from inpainting.flow.liteflownet.model import LiteFlowNetModel
-from inpainting.flow.pwcnet.model import PWCNetModel
-from inpainting.inpainting.deepfillv1.model import DeepFillV1Model
-from inpainting.inpainting.deepfillv2.model import DeepFillV2Model
-from inpainting.inpainting.kernel_inpainting import Inpainter
-from inpainting.inpainting.pconvunet.model import PConvUNetModel
+from inpainting.flow import select_flow_model
+from inpainting.inpainting import select_inpainting_model
 from inpainting.inpainting.region_fill import inpaint
 from inpainting.tracking.siammask.model import SiamMaskModel
-from inpainting.utils import make_grid, warp_tensor, normalize_flow, dilate_mask
+from inpainting.utils import make_grid, warp_tensor, normalize_flow
 
-import numpy as np
 import torch
-from inpainting.utils import invert_mask, tensor_to_cv_image
-from inpainting.visualize import save_frame
 
 
 class VideoInpaintingAlgorithm(abc.ABC):
@@ -37,20 +28,7 @@ class VideoInpaintingAlgorithm(abc.ABC):
 
 class SingleFrameVideoInpaintingAlgorithm(VideoInpaintingAlgorithm):
     def __init__(self, inpainting_model='DeepFillv1'):
-        if inpainting_model == 'RegionFill':
-            self.image_inpainting_model = inpaint
-        elif inpainting_model == 'KernelFill':
-            self.image_inpainting_model = Inpainter()
-        elif inpainting_model == 'DeepFillv1':
-            self.image_inpainting_model = DeepFillV1Model(
-                'models/inpainting/deepfillv1/imagenet_deepfill.pth').cuda().eval()
-        elif inpainting_model == 'DeepFillv2':
-            self.image_inpainting_model = DeepFillV2Model(
-                'models/inpainting/deepfillv2/latest_ckpt.pth.tar').cuda().eval()
-        elif inpainting_model == 'PConvUNet':
-            self.image_inpainting_model = PConvUNetModel('models/inpainting/pconvunet/1000000.pth').cuda().eval()
-        else:
-            raise ValueError(inpainting_model)
+        self.image_inpainting_model = select_inpainting_model(inpainting_model)
 
     def inpaint_online(self, current_image: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
         return self.image_inpainting_model(current_image, current_mask)
@@ -62,14 +40,7 @@ class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
 
         self.eps = eps
 
-        if flow_model == 'FlowNet2':
-            self.flow_model = FlowNet2Model('models/flow/flownet2/FlowNet2_checkpoint.pth.tar').cuda().eval()
-        elif flow_model == 'LiteFlowNet':
-            self.flow_model = LiteFlowNetModel('models/flow/liteflownet/network-default.pytorch').cuda().eval()
-        elif flow_model == 'PWCNet':
-            self.flow_model = PWCNetModel('models/flow/pwcnet/network-default.pytorch').cuda().eval()
-        else:
-            raise ValueError(flow_model)
+        self.flow_model = select_flow_model(flow_model)
 
         self.previous_mask = None
         self.previous_image = None
@@ -97,11 +68,11 @@ class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
             backward_grid = warp_tensor(grid, backward_flow_filled)
             forward_grid = warp_tensor(backward_grid, forward_flow_filled)
             flow_propagation_error = forward_grid - grid
-            connected_pixels_mask = invert_mask(
-                (warp_tensor(self.previous_mask_result, backward_flow_filled) > 0).float()) \
+            m = (warp_tensor(self.previous_mask_result, backward_flow_filled) > 0).float()
+            connected_pixels_mask = 1 - m \
                                     * (torch.norm(flow_propagation_error, 2, dim=1) < self.eps).float().unsqueeze(1)
 
-            current_image_result = current_image * invert_mask(current_mask) \
+            current_image_result = current_image * 1 - current_mask \
                                    + warp_tensor(self.previous_image_result,
                                                  backward_flow_filled) * connected_pixels_mask * current_mask
             current_mask_result = current_mask - connected_pixels_mask * current_mask

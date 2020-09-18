@@ -1,27 +1,33 @@
-.PHONY: all install data tracking inpainting end2end videos
+.PHONY: install data flow_estimation flow_inpainting image_inpainting tracking_and_segmentation
 .SECONDARY: ## Save all intermediate files
 
 #################################################################################
 # CONFIG                                                                    #
 #################################################################################
 
+include default.conf
 CONFIG = default.conf
 include $(CONFIG)
 
 
 #################################################################################
-# GLOBALS                                                                       #
+# DIRECTORIES                                                                       #
 #################################################################################
 
 DATA_DIR = data
-DATA_RAW_DIR = $(DATA_DIR)/raw/$(DATASET)
-DATA_INTERIM_DIR = $(DATA_DIR)/interim/$(DATASET)
-DATA_PROCESSED_DIR = $(DATA_DIR)/processed/$(DATASET)
+DATA_RAW_DIR = $(DATA_DIR)/raw
+DATA_INTERIM_DIR = $(DATA_DIR)/interim
+DATA_PROCESSED_DIR = $(DATA_DIR)/processed
+DATA_FLOW_ESTIMATION_DIR = $(DATA_PROCESSED_DIR)/flow_estimation
+DATA_FLOW_INPAINTING_DIR = $(DATA_PROCESSED_DIR)/flow_inpainting
+DATA_IMAGE_INPAINTING_DIR = $(DATA_PROCESSED_DIR)/image_inpainting
+DATA_TRACKING_AND_SEGMENTATION_DIR = $(DATA_PROCESSED_DIR)/tracking_and_segmentation
 
 RESULTS_DIR = results
-RESULTS_TRACKING_DIR = $(RESULTS_DIR)/tracking/$(DATASET)
-RESULTS_INPAINTING_DIR = $(RESULTS_DIR)/inpainting/$(basename $(CONFIG))
-RESULTS_END2END_DIR = $(RESULTS_DIR)/end2end/$(basename $(CONFIG))
+RESULTS_FLOW_ESTIMATION_DIR = $(RESULTS_DIR)/flow_estimation/$(basename $(CONFIG))
+RESULTS_FLOW_INPAINTING_DIR = $(RESULTS_DIR)/flow_inpainting/$(basename $(CONFIG))
+RESULTS_IMAGE_INPAINTING_DIR = $(RESULTS_DIR)/image_inpainting/$(basename $(CONFIG))
+RESULTS_TRACKING_AND_SEGMENTATION_DIR = $(RESULTS_DIR)/tracking_and_segmentation/$(basename $(CONFIG))
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -35,131 +41,155 @@ install :
 	cd ./inpainting/external/layers/channelnorm_package && python setup.py install
 
 #################################################################################
-# PROJECT RULES                                                                 #
+# DATA RULES                                                                    #
 #################################################################################
 
-## All
-all : data tracking inpainting end2end
+data : $(DATA_INTERIM_DIR)/DAVIS/Annotations/480p \
+       $(DATA_INTERIM_DIR)/DAVIS/JPEGImages/480p \
+       $(DATA_INTERIM_DIR)/DAVIS/ObjectStats \
+       $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/final \
+       $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/flow
 
-## Prepare Video Object Removal Dataset
-data : $(DATA_PROCESSED_DIR)
-
-$(DATA_PROCESSED_DIR) : $(DATA_PROCESSED_DIR)/InputImages $(DATA_PROCESSED_DIR)/Masks $(DATA_PROCESSED_DIR)/TargetImages ;
-
-$(DATA_PROCESSED_DIR)/InputImages $(DATA_PROCESSED_DIR)/Masks $(DATA_PROCESSED_DIR)/TargetImages &: $(DATA_INTERIM_DIR)/AdjustedJPEGImages $(DATA_INTERIM_DIR)/AdjustedAnnotations $(DATA_INTERIM_DIR)/ObjectStats
-	python scripts/data/prepare_vor_dataset.py --images-dir $(word 1,$^) \
-                                               --annotations-dir $(word 2,$^) \
-                                               --object-stats-dir $(word 3,$^) \
-                                               --processed-dir $(dir $@) \
-                                               --limit-samples $(SAMPLES) \
-                                               --seed $(SEED) \
-                                               --min-presence $(MIN_PRESENCE) \
-                                               --min-mean-size $(MIN_MEAN_SIZE) \
-                                               --max-mean-size $(MAX_MEAN_SIZE)
-
-$(DATA_INTERIM_DIR)/ObjectStats : $(DATA_INTERIM_DIR)/AdjustedAnnotations
-	python scripts/data/calculate_object_stats.py --annotations-dir $(word 1,$^) \
-                                                  --object-stats-dir $@
-
-$(DATA_INTERIM_DIR)/AdjustedAnnotations : $(DATA_RAW_DIR)/Annotations
+$(DATA_INTERIM_DIR)/DAVIS/Annotations/480p : $(DATA_RAW_DIR)/DAVIS/Annotations/480p
 	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
                                          --interim-dir $@ \
                                          --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
                                          --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
                                          --frame-type 'annotation'
 
-$(DATA_INTERIM_DIR)/AdjustedJPEGImages : $(DATA_RAW_DIR)/JPEGImages
+$(DATA_INTERIM_DIR)/DAVIS/JPEGImages/480p : $(DATA_RAW_DIR)/DAVIS/JPEGImages/480p
 	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
                                          --interim-dir $@ \
                                          --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
                                          --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
                                          --frame-type 'image'
 
+$(DATA_INTERIM_DIR)/DAVIS/ObjectStats : $(DATA_INTERIM_DIR)/DAVIS/Annotations/480p
+	python scripts/data/calculate_object_stats.py --annotations-dir $(word 1,$^) \
+                                                  --object-stats-dir $@ \
+												  --min-presence $(MIN_PRESENCE) \
+												  --min-mean-size $(MIN_MEAN_SIZE) \
+												  --max-mean-size $(MAX_MEAN_SIZE)
 
-## Tracking
-tracking : $(RESULTS_TRACKING_DIR)
+$(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/final : $(DATA_RAW_DIR)/MPI-Sintel-complete/training/final
+	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
+                                         --interim-dir $@ \
+                                         --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
+                                         --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
+                                         --frame-type 'image'
 
-$(RESULTS_TRACKING_DIR) : $(RESULTS_TRACKING_DIR)/Evaluation $(RESULTS_TRACKING_DIR)/Initialization $(RESULTS_TRACKING_DIR)/OutputMasks
+$(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/flow : $(DATA_RAW_DIR)/MPI-Sintel-complete/training/flow
+	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
+                                         --interim-dir $@ \
+                                         --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
+                                         --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
+                                         --frame-type 'flow'
 
-$(RESULTS_TRACKING_DIR)/Evaluation : $(RESULTS_TRACKING_DIR)/OutputMasks $(DATA_PROCESSED_DIR)/Masks
+#################################################################################
+# EXPERIMENTS                                                                   #
+#################################################################################
+
+
+## Flow estimation
+flow_estimation : $(RESULTS_FLOW_ESTIMATION_DIR)/Evaluation \
+                  $(RESULTS_FLOW_ESTIMATION_DIR)/Flows
+
+$(RESULTS_FLOW_ESTIMATION_DIR)/Evaluation : $(RESULTS_FLOW_ESTIMATION_DIR)/Flows \
+                                            $(DATA_FLOW_ESTIMATION_DIR)/Flows
 	python scripts/evaluate.py --output-frames-dir $(word 1,$^) \
                                --target-frames-dir $(word 2,$^) \
                                --results-dir $(dir $@) \
-                               --mode segmentation
+                               --mode 'flow_estimation'
 
-$(RESULTS_TRACKING_DIR)/Initialization $(RESULTS_TRACKING_DIR)/OutputMasks &: $(DATA_PROCESSED_DIR)/InputImages $(DATA_PROCESSED_DIR)/Masks
-	python scripts/infer_tracking.py --input-images-dir $(word 1,$^) \
-                                     --input-masks-dir $(word 2,$^) \
-                                     --results-dir $(dir $@)
+$(RESULTS_FLOW_ESTIMATION_DIR)/Flows : $(DATA_FLOW_ESTIMATION_DIR)/Images
+	python scripts/infer_flow_estimation.py --input-images-dir $(word 1,$^) \
+                                            --results-dir $(dir $@) \
+                                            --flow-model $(FLOW_MODEL)
 
-## Inpainting
-inpainting : $(RESULTS_INPAINTING_DIR)
+$(DATA_FLOW_ESTIMATION_DIR)/Images $(DATA_FLOW_ESTIMATION_DIR)/Flows &: $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/final \
+                                                                        $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/flow
+	python scripts/data/prepare_flow_estimation_dataset.py --images-dir $(word 1,$^) \
+										   				   --flows-dir $(word 2,$^) \
+													       --processed-dir $(dir $@) \
+													       --limit-samples $(SAMPLES) \
+													       --seed $(SEED)
 
-$(RESULTS_INPAINTING_DIR) : $(RESULTS_INPAINTING_DIR)/Evaluation $(RESULTS_INPAINTING_DIR)/OutputImages
+## Image inpainting
+image_inpainting : $(RESULTS_IMAGE_INPAINTING_DIR)/Evaluation \
+                   $(RESULTS_IMAGE_INPAINTING_DIR)/Images
 
-$(RESULTS_INPAINTING_DIR)/Evaluation : $(RESULTS_INPAINTING_DIR)/OutputImages $(DATA_PROCESSED_DIR)/TargetImages
+$(RESULTS_IMAGE_INPAINTING_DIR)/Evaluation : $(RESULTS_IMAGE_INPAINTING_DIR)/Images \
+                                             $(DATA_IMAGE_INPAINTING_DIR)/Images
 	python scripts/evaluate.py --output-frames-dir $(word 1,$^) \
                                --target-frames-dir $(word 2,$^) \
                                --results-dir $(dir $@) \
-                               --mode inpainting
+                               --mode 'inpainting'
 
-$(RESULTS_INPAINTING_DIR)/OutputImages : $(DATA_PROCESSED_DIR)/InputImages $(DATA_PROCESSED_DIR)/Masks
+$(RESULTS_IMAGE_INPAINTING_DIR)/Images : $(DATA_IMAGE_INPAINTING_DIR)/Images \
+                                         $(DATA_IMAGE_INPAINTING_DIR)/Masks
 	python scripts/infer_inpainting.py --input-images-dir $(word 1,$^) \
                                        --input-masks-dir $(word 2,$^) \
                                        --results-dir $(dir $@) \
-                                       --inpainting-model $(INPAINTING_MODEL) \
-                                       --flow-model $(FLOW_MODEL)
+                                       --inpainting-model $(IMAGE_INPAINTING_MODEL)
+
+$(DATA_IMAGE_INPAINTING_DIR)/Images $(DATA_IMAGE_INPAINTING_DIR)/Masks &: $(DATA_INTERIM_DIR)/DAVIS/JPEGImages/480p \
+                                                                          $(DATA_INTERIM_DIR)/DAVIS/Annotations/480p \
+                                                                          $(DATA_INTERIM_DIR)/DAVIS/ObjectStats
+	python scripts/data/prepare_dataset.py --frames-dir $(word 1,$^) \
+										   --annotations-dir $(word 2,$^) \
+										   --object-stats-dir $(word 3,$^) \
+										   --processed-dir $(dir $@) \
+										   --limit-samples $(SAMPLES) \
+										   --seed $(SEED) \
+										   --mode 'image_inpainting'
 
 
-## End2End
+## Tracking and segmentation
+tracking_and_segmentation : $(RESULTS_TRACKING_AND_SEGMENTATION_DIR)/Evaluation \
+						    $(RESULTS_TRACKING_AND_SEGMENTATION_DIR)/Initialization \
+						    $(RESULTS_TRACKING_AND_SEGMENTATION_DIR)/Masks
 
-end2end : $(RESULTS_END2END_DIR)
-
-$(RESULTS_END2END_DIR) : $(RESULTS_END2END_DIR)/Evaluation $(RESULTS_END2END_DIR)/OutputImages
-
-$(RESULTS_END2END_DIR)/Evaluation : $(RESULTS_END2END_DIR)/OutputImages $(DATA_PROCESSED_DIR)/TargetImages
+$(RESULTS_TRACKING_AND_SEGMENTATION_DIR)/Evaluation : $(RESULTS_TRACKING_AND_SEGMENTATION_DIR)/Masks \
+                                                      $(DATA_TRACKING_AND_SEGMENTATION_DIR)/Masks
 	python scripts/evaluate.py --output-frames-dir $(word 1,$^) \
                                --target-frames-dir $(word 2,$^) \
                                --results-dir $(dir $@) \
-                               --mode inpainting
+                               --mode 'tracking_and_segmentation'
 
-$(RESULTS_END2END_DIR)/OutputImages : $(DATA_PROCESSED_DIR)/InputImages $(RESULTS_TRACKING_DIR)/OutputMasks
-	python scripts/infer_inpainting.py --input-images-dir $(word 1,$^) \
-                                       --input-masks-dir $(word 2,$^) \
-                                       --results-dir $(dir $@) \
-                                       --inpainting-model $(INPAINTING_MODEL) \
-                                       --flow-model $(FLOW_MODEL)
+$(RESULTS_TRACKING_AND_SEGMENTATION_DIR)/Initialization $(RESULTS_TRACKING_AND_SEGMENTATION_DIR)/Masks &: $(DATA_TRACKING_AND_SEGMENTATION_DIR)/Images \
+                                                                                                          $(DATA_TRACKING_AND_SEGMENTATION_DIR)/Masks
+	python scripts/infer_tracking_and_segmentation.py --input-images-dir $(word 1,$^) \
+													  --input-masks-dir $(word 2,$^) \
+													  --results-dir $(dir $@)
+
+
+$(DATA_TRACKING_AND_SEGMENTATION_DIR)/Images $(DATA_TRACKING_AND_SEGMENTATION_DIR)/Masks &: $(DATA_INTERIM_DIR)/DAVIS/JPEGImages/480p \
+																						    $(DATA_INTERIM_DIR)/DAVIS/Annotations/480p \
+																						    $(DATA_INTERIM_DIR)/DAVIS/ObjectStats
+	python scripts/data/prepare_dataset.py --frames-dir $(word 1,$^) \
+										   --annotations-dir $(word 2,$^) \
+										   --object-stats-dir $(word 3,$^) \
+										   --processed-dir $(dir $@) \
+										   --limit-samples $(SAMPLES) \
+										   --seed $(SEED) \
+										   --mode 'tracking_and_segmentation'
+
 
 ## Videos
-videos : $(DATA_PROCESSED_DIR)/InputImageVideos $(DATA_PROCESSED_DIR)/MaskVideos $(DATA_PROCESSED_DIR)/TargetImageVideos \
-         $(RESULTS_TRACKING_DIR)/OutputMaskVideos $(RESULTS_INPAINTING_DIR)/OutputImageVideos $(RESULTS_END2END_DIR)/OutputImageVideos
+videos : $(DATA_FLOW_ESTIMATION_DIR)/ImageVideos $(DATA_FLOW_ESTIMATION_DIR)/FlowVideos $(RESULTS_FLOW_ESTIMATION_DIR)/FlowVideos \
+         $(DATA_IMAGE_INPAINTING_DIR)/ImageVideos $(DATA_IMAGE_INPAINTING_DIR)/MaskVideos $(RESULTS_IMAGE_INPAINTING_DIR)/ImageVideos \
+         $(DATA_TRACKING_AND_SEGMENTATION_DIR)/ImageVideos $(DATA_TRACKING_AND_SEGMENTATION_DIR)/MaskVideos $(RESULTS_TRACKING_AND_SEGMENTATION_DIR)/MaskVideos
 
-$(DATA_PROCESSED_DIR)/InputImageVideos : $(DATA_PROCESSED_DIR)/InputImages
+%/FlowVideos : %/Flows
+	python scripts/convert_to_videos.py --frames-dir $^ \
+	                                    --videos-dir $@ \
+	                                    --frame-type 'flow'
+
+%/ImageVideos : %/Images
 	python scripts/convert_to_videos.py --frames-dir $^ \
 	                                    --videos-dir $@ \
 	                                    --frame-type 'image'
-
-$(DATA_PROCESSED_DIR)/MaskVideos : $(DATA_PROCESSED_DIR)/Masks
+%/MaskVideos : %/Masks
 	python scripts/convert_to_videos.py --frames-dir $^ \
 	                                    --videos-dir $@ \
 	                                    --frame-type 'mask'
-
-$(DATA_PROCESSED_DIR)/TargetImageVideos : $(DATA_PROCESSED_DIR)/TargetImages
-	python scripts/convert_to_videos.py --frames-dir $^ \
-	                                    --videos-dir $@ \
-	                                    --frame-type 'image'
-
-$(RESULTS_TRACKING_DIR)/OutputMaskVideos : $(RESULTS_TRACKING_DIR)/OutputMasks
-	python scripts/convert_to_videos.py --frames-dir $^ \
-	                                    --videos-dir $@ \
-	                                    --frame-type 'mask'
-
-$(RESULTS_INPAINTING_DIR)/OutputImageVideos : $(RESULTS_INPAINTING_DIR)/OutputImages
-	python scripts/convert_to_videos.py --frames-dir $^ \
-	                                    --videos-dir $@ \
-	                                    --frame-type 'image'
-
-$(RESULTS_END2END_DIR)/OutputImageVideos : $(RESULTS_END2END_DIR)/OutputImages
-	python scripts/convert_to_videos.py --frames-dir $^ \
-	                                    --videos-dir $@ \
-	                                    --frame-type 'image'

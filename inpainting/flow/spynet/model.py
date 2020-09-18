@@ -119,7 +119,7 @@ class Network(torch.nn.Module):
 # end
 # end
 
-class SpyNetModel(torch.nn.Module):
+class SPyNetModel(torch.nn.Module):
     def __init__(self, path):
         super().__init__()
         self.model = Network(path)
