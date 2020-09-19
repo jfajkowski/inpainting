@@ -35,6 +35,8 @@ def convert_tensor(tensor: torch.Tensor, frame_type):
         return tensor_to_mask(tensor)
     elif frame_type == 'flow':
         return tensor_to_flow(tensor)
+    elif frame_type == 'flowviz':
+        return tensor_to_image(flow_tensor_to_image_tensor(tensor))
     else:
         raise ValueError(frame_type)
 

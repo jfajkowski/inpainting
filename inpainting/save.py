@@ -7,8 +7,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from inpainting.utils import tensor_to_image, tensor_to_mask, flow_tensor_to_image_tensor, tensor_to_flow, \
-    convert_tensor
+from inpainting.utils import convert_tensor
 
 
 def save_frames(frames, frames_dir, frame_type='image'):
@@ -48,18 +47,12 @@ def save_frame(frame, path, frame_type='image', roi=None):
 
 
 def save_video(frames, path, frame_type='image', frame_rate=24, codec=cv.VideoWriter_fourcc(*'avc1')):
-    height, width = frames[0].shape[-2], frames[0].shape[-1]
-
-    if frame_type == 'image':
-        frames = [tensor_to_image(f) for f in frames]
-    elif frame_type == 'mask':
-        frames = [tensor_to_mask(f) for f in frames]
-    elif frame_type == 'flow':
-        frames = [tensor_to_image(flow_tensor_to_image_tensor(f)) for f in frames]
-    else:
-        ValueError(frame_type)
+    if isinstance(frames[0], torch.Tensor):
+        frames = [convert_tensor(f, frame_type) for f in frames]
 
     makedirs(dirname(path), exist_ok=True)
+
+    height, width = frames[0].shape[0], frames[0].shape[1]
     video_writer = cv.VideoWriter(path, codec, frame_rate, (width, height))
     for frame in frames:
         video_writer.write(frame)

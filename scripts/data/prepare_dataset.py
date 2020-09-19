@@ -24,7 +24,8 @@ random.seed(opt.seed)
 frames_dirs = list(sorted(glob.glob(f'{opt.frames_dir}/*')))
 annotations_dirs = list(sorted(glob.glob(f'{opt.annotations_dir}/*')))
 object_stats_dirs = list(sorted(glob.glob(f'{opt.object_stats_dir}/*')))
-sequence_names = list(map(basename, frames_dirs))
+background_sequence_names = list(map(basename, frames_dirs))
+foreground_sequence_names = list(map(basename, annotations_dirs))
 
 frame_type = 'flow' if 'flow' in opt.mode else 'image'
 frames_dataset = SequenceDataset(
@@ -60,10 +61,10 @@ if len(candidates) > opt.limit_samples:
 for background_index, (foreground_index, foreground_object_stats_row) in tqdm(candidates,
                                                                               desc=f'Preparing {opt.mode} dataset',
                                                                               unit='sequence'):
-    background_sequence_name = sequence_names[background_index]
+    background_sequence_name = background_sequence_names[background_index]
     background_frames = frames_dataset[background_index]
 
-    foreground_sequence_name = sequence_names[foreground_index]
+    foreground_sequence_name = foreground_sequence_names[foreground_index]
     foreground_annotations = annotations_dataset[foreground_index]
 
     object_id = int(foreground_object_stats_row['object_id'])

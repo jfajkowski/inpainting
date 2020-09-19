@@ -18,7 +18,7 @@ def evaluate_segmentation(target_masks, output_masks):
     return pd.DataFrame(results)
 
 
-def evaluate_flow_estimation(target_flows, output_flows):
+def evaluate_flow(target_flows, output_flows):
     results = []
     for frame_id, (target_flow, output_flow) in enumerate(zip(target_flows, output_flows)):
         target_flow, output_flow = target_flow.numpy(), \

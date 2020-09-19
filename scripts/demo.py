@@ -7,10 +7,11 @@ from inpainting import transforms
 from inpainting.algorithms import VideoTrackingAlgorithm, SingleFrameVideoInpaintingAlgorithm, \
     FlowGuidedVideoInpaintingAlgorithm
 from inpainting.load import SequenceDataset
+from inpainting.save import save_video
 from inpainting.utils import tensor_to_image, cv_image_to_tensor, tensor_to_mask
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--images-dir', type=str, default='data/raw/DAVIS/JPEGImages/tennis')
+parser.add_argument('--images-dir', type=str, default='data/raw/DAVIS/JPEGImages/480p/soccerball')
 parser.add_argument('--show-mask', type=bool, default=True)
 parser.add_argument('--size', type=int, nargs=2, default=(512, 256))
 opt = parser.parse_args()
@@ -38,7 +39,7 @@ else:
         [opt.images_dir],
         'image',
         transform=transforms.Compose([
-            transforms.Resize(opt.size[::-1]),
+            transforms.Resize(opt.size[::-1], 'image'),
             transforms.ToTensor()
         ])
     )
@@ -56,6 +57,7 @@ with torch.no_grad():
     # inpainting_algorithm = SingleFrameVideoInpaintingAlgorithm()
     inpainting_algorithm = FlowGuidedVideoInpaintingAlgorithm()
 
+    output_images = []
     for image in image_sequence:
         image = image.cuda()
         mask = tracking_algorithm.track_online(image).cuda().unsqueeze(0)
@@ -68,9 +70,11 @@ with torch.no_grad():
             contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
             output = cv.drawContours(output, contours, -1, (0, 255, 0), 1)
 
+        output_images.append(output)
         cv.imshow('Demo', output)
         key = cv.waitKey(1)
         if key > 0:
             break
 
-cv.destroyAllWindows()
+    save_video(output_images, 'results/demo.mp4', 'image')
+    cv.destroyAllWindows()
