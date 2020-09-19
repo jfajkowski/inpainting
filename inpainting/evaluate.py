@@ -1,19 +1,17 @@
 import pandas as pd
 from skimage.metrics import mean_squared_error, structural_similarity, peak_signal_noise_ratio
 
-from .metrics import db_eval_iou, db_eval_boundary, endpoint_error
+from .metrics import endpoint_error, object_coverage, background_coverage
 from .utils import tensor_to_image
 
 
 def evaluate_segmentation(target_masks, output_masks):
     results = []
     for frame_id, (target_mask, output_mask) in enumerate(zip(target_masks, output_masks)):
-        target_mask, output_mask = target_mask.numpy(), \
-                                   output_mask.numpy()
         results.append({
             'frame_id': frame_id,
-            'region_similarity': float(db_eval_iou(target_mask, output_mask)),
-            'contour_accuracy': float(db_eval_boundary(target_mask, output_mask))
+            'object_coverage': float(object_coverage(target_mask, output_mask)),
+            'background_coverage': float(background_coverage(target_mask, output_mask))
         })
     return pd.DataFrame(results)
 
