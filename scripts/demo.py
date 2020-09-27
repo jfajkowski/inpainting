@@ -11,8 +11,8 @@ from inpainting.save import save_video
 from inpainting.utils import tensor_to_image, cv_image_to_tensor, tensor_to_mask
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--images-dir', type=str, default='data/raw/DAVIS/JPEGImages/480p/soccerball')
-parser.add_argument('--show-mask', type=bool, default=True)
+parser.add_argument('--images-dir', type=str, default='data/interim/DAVIS/JPEGImages/480p/tennis')
+parser.add_argument('--show-mask', type=bool, default=False)
 parser.add_argument('--size', type=int, nargs=2, default=(512, 256))
 opt = parser.parse_args()
 

@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 import torch
 import flowiz as fz
+import torchvision
 from torch.nn import functional as F
 from PIL import Image
 from torchvision.transforms.functional import to_pil_image, to_tensor
@@ -9,6 +10,13 @@ from torchvision.transforms.functional import to_pil_image, to_tensor
 
 def annotation_to_mask(image, object_id=1):
     image = np.array(image)
+
+    if isinstance(object_id, list):
+        mask = np.zeros(image.shape, dtype=np.uint8)
+        for o in object_id:
+            mask += annotation_to_mask(image, o)
+        return mask
+
     mask = np.zeros(image.shape, dtype=np.uint8)
     mask[image == object_id] = 255
     return Image.fromarray(mask).convert('L')
@@ -64,7 +72,7 @@ def cv_image_to_tensor(mat: np.ndarray):
 def tensor_to_pil_image(tensor):
     assert 3 <= len(tensor.size()) <= 4
     if len(tensor.size()) == 4:
-        tensor = make_grid(tensor)
+        tensor = torchvision.utils.make_grid(tensor)
     return to_pil_image(tensor.detach().cpu())
 
 
@@ -124,10 +132,16 @@ def denormalize_flow(flow):
     return flow
 
 
-def dilate_mask(x, size=3, iterations=3):
+def dilate_mask(x: torch.Tensor, size=3, iterations=3):
+    if len(x.size()) == 3:
+        x = x.unsqueeze(0)
+        x = dilate_mask(x, size, iterations)
+        return x.squeeze(0)
+
     structuring_element = torch.ones((size, size)).view(1, 1, size, size).to(x.device)
     for i in range(iterations):
         x = (F.conv2d(x, structuring_element, stride=1, padding=(size // 2, size // 2)) > 0).float()
+
     return x
 
 
