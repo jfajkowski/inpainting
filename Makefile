@@ -22,8 +22,10 @@ DATA_FLOW_ESTIMATION_DIR = $(DATA_PROCESSED_DIR)/flow_estimation
 DATA_FLOW_INPAINTING_DIR = $(DATA_PROCESSED_DIR)/flow_inpainting
 DATA_IMAGE_INPAINTING_DIR = $(DATA_PROCESSED_DIR)/image_inpainting
 DATA_TRACKING_AND_SEGMENTATION_DIR = $(DATA_PROCESSED_DIR)/tracking_and_segmentation
+DATA_E2E_DIR = $(DATA_DIR)/demo
 
 RESULTS_DIR = results
+RESULTS_E2E_DIR = $(RESULTS_DIR)/e2e/$(basename $(CONFIG))
 RESULTS_FLOW_ESTIMATION_DIR = $(RESULTS_DIR)/flow_estimation/$(basename $(CONFIG))
 RESULTS_FLOW_INPAINTING_DIR = $(RESULTS_DIR)/flow_inpainting/$(basename $(CONFIG))
 RESULTS_IMAGE_INPAINTING_DIR = $(RESULTS_DIR)/image_inpainting/$(basename $(CONFIG))
@@ -216,11 +218,33 @@ $(DATA_TRACKING_AND_SEGMENTATION_DIR)/Images $(DATA_TRACKING_AND_SEGMENTATION_DI
 										   --mode 'tracking_and_segmentation'
 
 
+## End-to-end
+end2end : $(RESULTS_E2E_DIR)/Benchmark \
+          $(RESULTS_E2E_DIR)/Initialization \
+          $(RESULTS_E2E_DIR)/Images \
+          $(RESULTS_E2E_DIR)/Masks \
+          $(DATA_E2E_DIR)/ImageVideos \
+          $(RESULTS_E2E_DIR)/ImageVideos \
+          $(RESULTS_E2E_DIR)/MaskVideos
+
+$(RESULTS_E2E_DIR)/Benchmark $(RESULTS_E2E_DIR)/Initialization $(RESULTS_E2E_DIR)/Images $(RESULTS_E2E_DIR)/Masks &: $(DATA_E2E_DIR)/Images \
+                                                                                                                     $(DATA_E2E_DIR)/Annotations
+	python scripts/infer_end2end.py --images-dir $(word 1,$^) \
+                                    --annotations-dir $(word 2,$^) \
+						            --results-dir $(dir $@) \
+						            --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
+						            --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
+						            --dilation-size $(DILATION_SIZE) \
+						            --dilation-iterations $(DILATION_ITERATIONS) \
+						            --flow-model $(FLOW_MODEL) \
+						            --inpainting-model $(IMAGE_INPAINTING_MODEL)
+
 ## Videos
 videos : $(DATA_FLOW_ESTIMATION_DIR)/ImageVideos $(DATA_FLOW_ESTIMATION_DIR)/FlowVideos $(RESULTS_FLOW_ESTIMATION_DIR)/FlowVideos \
          $(DATA_FLOW_INPAINTING_DIR)/FlowVideos $(DATA_FLOW_INPAINTING_DIR)/MaskVideos $(RESULTS_FLOW_INPAINTING_DIR)/FlowVideos \
          $(DATA_IMAGE_INPAINTING_DIR)/ImageVideos $(DATA_IMAGE_INPAINTING_DIR)/MaskVideos $(RESULTS_IMAGE_INPAINTING_DIR)/ImageVideos \
-         $(DATA_TRACKING_AND_SEGMENTATION_DIR)/ImageVideos $(DATA_TRACKING_AND_SEGMENTATION_DIR)/MaskVideos $(RESULTS_TRACKING_AND_SEGMENTATION_DIR)/MaskVideos
+         $(DATA_TRACKING_AND_SEGMENTATION_DIR)/ImageVideos $(DATA_TRACKING_AND_SEGMENTATION_DIR)/MaskVideos $(RESULTS_TRACKING_AND_SEGMENTATION_DIR)/MaskVideos \
+         $(DATA_E2E_DIR)/ImageVideos $(RESULTS_E2E_DIR)/ImageVideos $(RESULTS_E2E_DIR)/MaskVideos
 
 %/FlowVideos : %/Flows
 	python scripts/convert_to_videos.py --frames-dir $^ \

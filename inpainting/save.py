@@ -41,7 +41,7 @@ def save_frame(frame, path, frame_type='image', roi=None):
     else:
         if roi:
             assert frame_type == 'image'
-            frame = cv.rectangle(frame, roi[0], roi[1], (255, 0, 0))
+            frame = cv.rectangle(frame, roi[0], roi[1], (0, 0, 255))
 
         cv.imwrite(path, frame)
 

@@ -2,14 +2,13 @@ import argparse
 import glob
 from os.path import basename
 
-import torch
 import pandas as pd
-
+import torch
 from tqdm import tqdm
 
 from inpainting import transforms
+from inpainting.algorithms import SingleFrameVideoInpaintingAlgorithm
 from inpainting.load import SequenceDataset, MergeDataset
-from inpainting.algorithms import SingleFrameVideoInpaintingAlgorithm, FlowGuidedVideoInpaintingAlgorithm
 from inpainting.save import save_frames, save_dataframe
 
 parser = argparse.ArgumentParser()
