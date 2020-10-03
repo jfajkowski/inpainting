@@ -6,7 +6,8 @@ from inpainting.inpainting import select_inpainting_model
 from inpainting.inpainting.region_fill import inpaint
 from inpainting.save import save_frame
 from inpainting.tracking.siammask.model import SiamMaskModel
-from inpainting.utils import make_grid, warp_tensor, normalize_flow, flow_tensor_to_image_tensor, dilate_mask
+from inpainting.utils import make_grid, warp_tensor, normalize_flow, flow_tensor_to_image_tensor, dilate_mask, \
+    mask_to_bbox
 
 import torch
 
@@ -77,31 +78,31 @@ class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
                                                  backward_flow_filled) * connected_pixels_mask * current_mask
             current_mask_result = current_mask - connected_pixels_mask * current_mask
 
-            # save_frame(current_image, 'debug/a.png', frame_type='image')
-            # save_frame(current_mask, 'debug/b.png', frame_type='mask')
-            # save_frame(self.previous_image, 'debug/c.png', frame_type='image')
-            # save_frame(self.previous_mask, 'debug/d.png', frame_type='mask')
-            # save_frame(forward_flow, 'debug/e.png', frame_type='flowviz')
-            # save_frame(forward_flow_filled, 'debug/f.png', frame_type='flowviz')
-            # save_frame(backward_flow, 'debug/g.png', frame_type='flowviz')
-            # save_frame(backward_flow_filled, 'debug/h.png', frame_type='flowviz')
-            # save_frame(connected_pixels_mask, 'debug/i.png', frame_type='mask')
-            # save_frame(self.previous_image_result, 'debug/j.png', frame_type='image')
-            # save_frame(self.previous_mask_result, 'debug/k.png', frame_type='mask')
-            # save_frame(current_image_result, 'debug/l.png', frame_type='image')
-            # save_frame(current_mask_result, 'debug/m.png', frame_type='mask')
+            save_frame(current_image, 'debug/i_a_current_image.png', frame_type='image')
+            save_frame(current_mask, 'debug/i_b_current_mask.png', frame_type='mask')
+            save_frame(self.previous_image, 'debug/i_c_previous_image.png', frame_type='image')
+            save_frame(self.previous_mask, 'debug/i_d_previous_mask.png', frame_type='mask')
+            save_frame(forward_flow, 'debug/i_e_forward_flow.png', frame_type='flowviz')
+            save_frame(forward_flow_filled, 'debug/i_f_forward_flow_filled.png', frame_type='flowviz')
+            save_frame(backward_flow, 'debug/i_g_backward_flow.png', frame_type='flowviz')
+            save_frame(backward_flow_filled, 'debug/i_h_backward_flow_filled.png', frame_type='flowviz')
+            save_frame(connected_pixels_mask, 'debug/i_i_connected_pixels_mask.png', frame_type='mask')
+            save_frame(self.previous_image_result, 'debug/i_j_previous_image_result.png', frame_type='image')
+            save_frame(self.previous_mask_result, 'debug/i_k_previous_mask_result.png', frame_type='mask')
+            save_frame(current_image_result, 'debug/i_l_current_image_result.png', frame_type='image')
+            save_frame(current_mask_result, 'debug/i_m_current_mask_result.png', frame_type='mask')
         else:
             current_mask_result = current_mask
             current_image_result = current_image
-
-        current_image_result = super().inpaint_online(current_image_result, current_mask_result)
-        # save_frame(current_image_result, 'debug/n.png', frame_type='image')
 
         self.previous_mask = current_mask
         self.previous_image = current_image
         self.previous_mask_result = current_mask_result
         self.previous_image_result = current_image_result
         self.previous_available = True
+
+        current_image_result = super().inpaint_online(current_image_result, current_mask_result)
+        save_frame(current_image_result, 'debug/i_n_current_image_result.png', frame_type='image')
 
         return current_image_result
 
@@ -126,5 +127,11 @@ class VideoTrackingAlgorithm:
         return result
 
     def track_online(self, image: torch.Tensor) -> torch.Tensor:
-        return dilate_mask(self.tracking_model(image).unsqueeze(0), self.dilation_size,
-                           self.dilation_iterations).squeeze(0)
+        mask = self.tracking_model(image).unsqueeze(0)
+        dilated_mask = dilate_mask(mask, self.dilation_size, self.dilation_iterations)
+
+        save_frame(image, 'debug/s_a_image.png', frame_type='image')
+        save_frame(image, 'debug/s_b_image_with_roi.png', frame_type='image', roi=mask_to_bbox(mask))
+        save_frame(mask, 'debug/s_c_mask.png', frame_type='mask')
+        save_frame(dilated_mask, 'debug/s_d_dilated_mask.png', frame_type='mask')
+        return dilated_mask.squeeze(0)
