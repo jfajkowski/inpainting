@@ -1,4 +1,8 @@
 import glob
+import random
+import numpy as np
+import cv2 as cv
+
 import flowiz as fz
 import pandas as pd
 from PIL import Image
@@ -86,3 +90,52 @@ class MergeDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.datasets[0])
+
+
+class RandomMaskDataset(Dataset):
+
+    def __init__(self, frame_dataset, transform=None):
+        self.frame_dataset = frame_dataset
+        self.transform = transform
+
+    def __getitem__(self, index: int):
+        frames = self.frame_dataset[index]
+        masks = self._random_masks(frames)
+        sample = (frames, masks)
+        if self.transform is not None:
+            sample = self.transform(*sample)
+        return tuple(sample)
+
+    def _random_masks(self, frames):
+        return list(map(self._random_mask, frames))
+
+    def _random_mask(self, frame):
+        h, w, _ = frame.shape
+        s = random.choice([h, w])
+        min_points, max_points = 1, s // 5
+        min_thickness, max_thickness = 1, s // 5
+        min_angle_dir, max_angle_dir = 0, 2 * np.pi
+        min_angle_fold, max_angle_fold = - np.pi / 2, np.pi / 2
+        min_length, max_length = 1, s // 5
+
+        mask = np.zeros((h, w), dtype='int')
+        points = random.randint(min_points, max_points)
+        thickness = random.randint(min_thickness, max_thickness)
+
+        prev_x = random.randint(0, w)
+        prev_y = random.randint(0, h)
+
+        angle_dir = random.uniform(min_angle_dir, max_angle_dir)
+        for i in range(points):
+            angle_fold = random.uniform(min_angle_fold, max_angle_fold)
+            angle = angle_dir + angle_fold
+            length = random.randint(min_length, max_length)
+            x = int(prev_x + length * np.sin(angle))
+            y = int(prev_y + length * np.cos(angle))
+            mask = cv.line(mask, (prev_x, prev_y), (x, y), color=255, thickness=thickness)
+            prev_x = x
+            prev_y = y
+        return Image.fromarray(mask).convert('L')
+
+    def __len__(self) -> int:
+        return len(self.frame_dataset)

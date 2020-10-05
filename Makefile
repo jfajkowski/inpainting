@@ -52,7 +52,10 @@ data : $(DATA_INTERIM_DIR)/DAVIS/Annotations/480p \
        $(DATA_INTERIM_DIR)/DAVIS/JPEGImages/480p \
        $(DATA_INTERIM_DIR)/DAVIS/ObjectStats \
        $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/final \
-       $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/flow
+       $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/flow \
+	   $(DATA_INTERIM_DIR)/YouTube-VOS/test/JPEGImages \
+	   $(DATA_INTERIM_DIR)/YouTube-VOS/train/JPEGImages \
+   	   $(DATA_INTERIM_DIR)/YouTube-VOS/valid/JPEGImages
 
 $(DATA_INTERIM_DIR)/DAVIS/Annotations/480p : $(DATA_RAW_DIR)/DAVIS/Annotations/480p
 	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
@@ -88,6 +91,13 @@ $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/flow : $(DATA_RAW_DIR)/MPI-Sint
                                          --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
                                          --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
                                          --frame-type 'flow'
+
+$(DATA_INTERIM_DIR)/YouTube-VOS/% : $(DATA_RAW_DIR)/YouTube-VOS/%
+	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
+                                         --interim-dir $@ \
+                                         --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
+                                         --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
+                                         --frame-type 'image'
 
 #################################################################################
 # EXPERIMENTS                                                                   #
