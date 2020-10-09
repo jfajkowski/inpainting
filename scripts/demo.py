@@ -11,7 +11,7 @@ from inpainting.save import save_video
 from inpainting.utils import tensor_to_image, cv_image_to_tensor, tensor_to_mask
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--images-dir', type=str, default='data/demo/Images/breakdance')
+parser.add_argument('--images-dir', type=str, default='data/raw/demo/Images/soccerball')
 parser.add_argument('--show-mask', type=bool, default=False)
 parser.add_argument('--crop', type=float, default=2.0)
 parser.add_argument('--scale', type=int, nargs=2, default=(512, 256))

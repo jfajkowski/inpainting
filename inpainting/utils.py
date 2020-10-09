@@ -124,16 +124,26 @@ def _mean_and_std(mode='standard'):
 
 
 def normalize_flow(flow):
-    _, _, h, w = flow.size()
-    flow[:, 0, :, :] /= float(w)
-    flow[:, 1, :, :] /= float(h)
+    if isinstance(flow, torch.Tensor):
+        _, _, h, w = flow.size()
+        flow[:, 0, :, :] /= float(w)
+        flow[:, 1, :, :] /= float(h)
+    else:
+        h, w, _ = flow.shape
+        flow[:, :, 0] /= float(w)
+        flow[:, :, 1] /= float(h)
     return flow
 
 
 def denormalize_flow(flow):
-    _, _, h, w = flow.size()
-    flow[:, 0, :, :] *= float(w)
-    flow[:, 1, :, :] *= float(h)
+    if isinstance(flow, torch.Tensor):
+        _, _, h, w = flow.size()
+        flow[:, 0, :, :] *= float(w)
+        flow[:, 1, :, :] *= float(h)
+    else:
+        h, w, _ = flow.shape
+        flow[:, :, 0] *= float(w)
+        flow[:, :, 1] *= float(h)
     return flow
 
 

@@ -10,8 +10,8 @@ from inpainting.save import save_dataframe
 from inpainting.utils import get_paths
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--annotations-dir', type=str, default='data/interim/DAVIS/AdjustedAnnotations')
-parser.add_argument('--object-stats-dir', type=str, default='data/interim/DAVIS/ObjectStats')
+parser.add_argument('--annotations-dir', type=str, default='data/interim/demo/Annotations')
+parser.add_argument('--object-stats-dir', type=str, default='data/interim/demo/ObjectStats')
 parser.add_argument('--min-presence', type=float, default=0.5)
 parser.add_argument('--min-mean-size', type=float, default=0.01)
 parser.add_argument('--max-mean-size', type=float, default=0.25)

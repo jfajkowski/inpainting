@@ -6,6 +6,8 @@ import torch
 from PIL import Image
 from torchvision.transforms import functional as F
 
+from inpainting.utils import normalize_flow, denormalize_flow
+
 
 class Transform(abc.ABC):
 
@@ -56,18 +58,24 @@ class CenterCrop(Transform):
         self.frame_type = frame_type
 
     def transform_sample(self, sample, params):
-        image_height, image_width = sample.shape[:2]
+        image_height, image_width = sample.size[::-1] if self.frame_type == 'annotation' else sample.shape[:2]
 
-        if image_height > image_width:
-            crop_height = image_height
-            crop_width = round(crop_height * self.ratio)
-        else:
+        crop_height = image_height
+        crop_width = round(crop_height * self.ratio)
+        if crop_width > image_width:
             crop_width = image_width
             crop_height = round(crop_width / self.ratio)
 
         crop_left = int(round((image_width - crop_width) / 2.))
         crop_top = int(round((image_height - crop_height) / 2.))
-        return sample[crop_top:crop_top + crop_height, crop_left:crop_left + crop_width, :]
+        if self.frame_type == 'annotation':
+            return F.crop(sample, crop_top, crop_left, crop_height, crop_width)
+        elif self.frame_type == 'mask':
+            return sample[crop_top:crop_top + crop_height, crop_left:crop_left + crop_width]
+        elif self.frame_type == 'image' or self.frame_type == 'flow':
+            return sample[crop_top:crop_top + crop_height, crop_left:crop_left + crop_width, :]
+        else:
+            raise ValueError(self.frame_type)
 
 
 class Resize(Transform):
@@ -77,11 +85,18 @@ class Resize(Transform):
         self.frame_type = frame_type
 
     def transform_sample(self, sample, params):
-        if self.frame_type == 'image':
-            interpolation = cv.INTER_LINEAR
+        if self.frame_type == 'annotation':
+            return F.resize(sample, self.size, interpolation=Image.NEAREST)
+        elif self.frame_type == 'image':
+            return cv.resize(sample, tuple(self.size[::-1]), interpolation=cv.INTER_LINEAR)
+        elif self.frame_type == 'mask':
+            return cv.resize(sample, tuple(self.size[::-1]), interpolation=cv.INTER_NEAREST)
+        elif self.frame_type == 'flow':
+            sample = normalize_flow(sample)
+            sample = cv.resize(sample, tuple(self.size[::-1]), interpolation=cv.INTER_NEAREST)
+            return denormalize_flow(sample)
         else:
-            interpolation = cv.INTER_NEAREST
-        return cv.resize(sample, tuple(self.size[::-1]), interpolation=interpolation)
+            raise ValueError(self.frame_type)
 
 
 class Lambda(Transform):

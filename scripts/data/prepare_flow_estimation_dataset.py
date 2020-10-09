@@ -9,8 +9,8 @@ from inpainting.save import save_frames
 from inpainting.utils import get_paths
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--images-dir', type=str, default='data/interim/MPI-Sintel-complete/training/final')
-parser.add_argument('--flows-dir', type=str, default='data/interim/MPI-Sintel-complete/training/flow')
+parser.add_argument('--images-dir', type=str, default='data/interim/demo/Images')
+parser.add_argument('--flows-dir', type=str, default='data/interim/demo/Flows')
 parser.add_argument('--processed-dir', type=str, default='data/processed/flow_estimation')
 parser.add_argument('--limit-samples', type=int, default=3)
 parser.add_argument('--seed', type=int, default=42)

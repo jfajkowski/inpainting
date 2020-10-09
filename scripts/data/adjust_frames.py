@@ -9,11 +9,11 @@ from inpainting.save import save_frames
 from inpainting.utils import get_paths
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--frames-dir', type=str, default='data/raw/YouTube-VOS/valid/JPEGImages')
-parser.add_argument('--interim-dir', type=str, default='data/interim/YouTube-VOS/valid/JPEGImages')
+parser.add_argument('--frames-dir', type=str, default='data/raw/demo/Annotations')
+parser.add_argument('--interim-dir', type=str, default='data/interim/demo/Annotations')
 parser.add_argument('--crop', type=float, default=2.0)
 parser.add_argument('--scale', type=int, nargs=2, default=(512, 256))
-parser.add_argument('--frame-type', type=str, default='image')
+parser.add_argument('--frame-type', type=str, default='annotation')
 opt = parser.parse_args()
 
 

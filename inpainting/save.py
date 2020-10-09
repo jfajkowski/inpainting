@@ -38,8 +38,12 @@ def save_frame(frame, path, frame_type='image', roi=None):
             frame = cv.rectangle(frame, roi[0], roi[1], (0, 0, 255))
         frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
         cv.imwrite(path, frame)
-    else:
+    elif frame_type == 'annotation':
+        frame.save(path)
+    elif frame_type == 'mask':
         cv.imwrite(path, frame)
+    else:
+        raise ValueError(frame_type)
 
 
 def save_video(frames, path, frame_type='image', frame_rate=24, codec=cv.VideoWriter_fourcc(*'avc1')):
@@ -51,6 +55,8 @@ def save_video(frames, path, frame_type='image', frame_rate=24, codec=cv.VideoWr
     height, width = frames[0].shape[0], frames[0].shape[1]
     video_writer = cv.VideoWriter(path, codec, frame_rate, (width, height))
     for frame in frames:
+        if frame_type == 'image':
+            frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
         video_writer.write(frame)
     video_writer.release()
 

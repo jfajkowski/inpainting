@@ -7,6 +7,8 @@ import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset
 
+from inpainting.utils import get_paths
+
 
 def load_frame(frame_path, frame_type):
     if frame_type == 'image' or frame_type == 'flowviz':
@@ -14,7 +16,7 @@ def load_frame(frame_path, frame_type):
     elif frame_type == 'mask':
         return cv.imread(frame_path, cv.IMREAD_GRAYSCALE)
     elif frame_type == 'annotation':
-        return np.array(Image.open(frame_path).convert('P'))
+        return Image.open(frame_path).convert('P')
     elif frame_type == 'flow':
         return fz.read_flow(frame_path)
     else:
