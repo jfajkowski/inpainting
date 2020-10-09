@@ -2,14 +2,10 @@
 Portions of this code copyright 2017, Clement Pinard
 '''
 
-import torch
-import torch.nn as nn
 from torch.nn import init
 
-import math
-import numpy as np
-
 from .submodules import *
+
 'Parameter count : 38,676,504 '
 
 class FlowNetS(nn.Module):

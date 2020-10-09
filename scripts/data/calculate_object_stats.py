@@ -1,5 +1,4 @@
 import argparse
-import glob
 from os.path import basename
 
 import numpy as np
@@ -8,6 +7,7 @@ from tqdm import tqdm
 
 from inpainting.load import SequenceDataset
 from inpainting.save import save_dataframe
+from inpainting.utils import get_paths
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--annotations-dir', type=str, default='data/interim/DAVIS/AdjustedAnnotations')
@@ -18,7 +18,7 @@ parser.add_argument('--max-mean-size', type=float, default=0.25)
 opt = parser.parse_args()
 
 
-annotation_dirs = list(sorted(glob.glob(f'{opt.annotations_dir}/*')))
+annotation_dirs = get_paths(f'{opt.annotations_dir}/*')
 sequence_names = list(map(basename, annotation_dirs))
 
 annotation_dataset = SequenceDataset(annotation_dirs, 'annotation')

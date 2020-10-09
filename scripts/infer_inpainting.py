@@ -1,5 +1,4 @@
 import argparse
-import glob
 from os.path import basename
 
 import pandas as pd
@@ -7,36 +6,46 @@ import torch
 from tqdm import tqdm
 
 from inpainting import transforms
-from inpainting.algorithms import SingleFrameVideoInpaintingAlgorithm
+from inpainting.algorithms import SingleFrameVideoInpaintingAlgorithm, FlowGuidedVideoInpaintingAlgorithm
 from inpainting.load import SequenceDataset, MergeDataset
 from inpainting.save import save_frames, save_dataframe
+from inpainting.utils import get_paths
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--frames-dir', type=str, default='data/processed/image_inpainting/Images')
 parser.add_argument('--masks-dir', type=str, default='data/processed/image_inpainting/Masks')
 parser.add_argument('--results-dir', type=str, default='results/image_inpainting/default')
 parser.add_argument('--inpainting-model', type=str, default='DeepFillv1')
+parser.add_argument('--flow-model', type=str, default='FlowNet2')
 parser.add_argument('--mode', type=str, default='image_inpainting')
 opt = parser.parse_args()
 
-frames_dirs = list(sorted(glob.glob(f'{opt.frames_dir}/*')))
-masks_dirs = list(sorted(glob.glob(f'{opt.masks_dir}/*')))
+frames_dirs = get_paths(f'{opt.frames_dir}/*')
+masks_dirs = get_paths(f'{opt.masks_dir}/*')
 sequence_names = list(map(basename, frames_dirs))
 
 frame_type = 'flow' if 'flow' in opt.mode else 'image'
 frames_dataset = SequenceDataset(
-    list(glob.glob(f'{opt.frames_dir}/*')),
+    frames_dirs,
     frame_type
 )
 masks_dataset = SequenceDataset(
-    list(glob.glob(f'{opt.masks_dir}/*')),
+    masks_dirs,
     'mask'
 )
 dataset = MergeDataset([frames_dataset, masks_dataset], transform=transforms.ToTensor())
 
 
 with torch.no_grad():
-    inpainting_model = SingleFrameVideoInpaintingAlgorithm(opt.inpainting_model)
+    if opt.flow_model == 'None':
+        inpainting_model = SingleFrameVideoInpaintingAlgorithm(
+            inpainting_model=opt.inpainting_model
+        )
+    else:
+        inpainting_model = FlowGuidedVideoInpaintingAlgorithm(
+            flow_model=opt.flow_model,
+            inpainting_model=opt.inpainting_model
+        )
 
     start = torch.cuda.Event(enable_timing=True)
     end = torch.cuda.Event(enable_timing=True)

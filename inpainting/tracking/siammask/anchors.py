@@ -3,8 +3,10 @@
 # Licensed under The MIT License
 # Written by Qiang Wang (wangqiang2015 at ia.ac.cn)
 # --------------------------------------------------------
-import numpy as np
 import math
+
+import numpy as np
+
 from .bbox_helper import center2corner, corner2center
 
 

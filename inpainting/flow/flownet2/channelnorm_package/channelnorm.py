@@ -1,6 +1,7 @@
+import channelnorm_cuda
 from torch.autograd import Function, Variable
 from torch.nn.modules.module import Module
-import channelnorm_cuda
+
 
 class ChannelNormFunction(Function):
 

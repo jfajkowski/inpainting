@@ -5,10 +5,10 @@
 # --------------------------------------------------------
 from __future__ import division
 
-import os
 import logging
-import sys
 import math
+import os
+import sys
 
 if hasattr(sys, 'frozen'):  # support for py2exe
     _srcfile = "logging%s__init__%s" % (os.sep, __file__[-4:])

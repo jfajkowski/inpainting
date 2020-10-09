@@ -1,21 +1,20 @@
-import glob
 import random
-import numpy as np
-import cv2 as cv
 
+import cv2 as cv
 import flowiz as fz
+import numpy as np
 import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset
 
 
 def load_frame(frame_path, frame_type):
-    if frame_type == 'image':
-        return Image.open(frame_path).convert('RGB')
+    if frame_type == 'image' or frame_type == 'flowviz':
+        return cv.cvtColor(cv.imread(frame_path, cv.IMREAD_COLOR), cv.COLOR_BGR2RGB)
     elif frame_type == 'mask':
-        return Image.open(frame_path).convert('L')
+        return cv.imread(frame_path, cv.IMREAD_GRAYSCALE)
     elif frame_type == 'annotation':
-        return Image.open(frame_path).convert('P')
+        return np.array(Image.open(frame_path).convert('P'))
     elif frame_type == 'flow':
         return fz.read_flow(frame_path)
     else:
@@ -47,7 +46,7 @@ class SequenceDataset(Dataset):
         self.transform = transform
 
         for sample_dir in sequence_dirs:
-            frame_paths = sorted(glob.glob(f'{sample_dir}/*'))
+            frame_paths = get_paths(f'{sample_dir}/*')
             frame_count = len(frame_paths)
             if sequence_length and frame_count < sequence_length:
                 print(f'Omitting {sample_dir} because it contains only {frame_count} upper_frames '

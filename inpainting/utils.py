@@ -1,11 +1,16 @@
+import glob
+
 import cv2 as cv
+import flowiz as fz
 import numpy as np
 import torch
-import flowiz as fz
 import torchvision
 from torch.nn import functional as F
-from PIL import Image
 from torchvision.transforms.functional import to_pil_image, to_tensor
+
+
+def get_paths(wildcard):
+    return list(sorted(glob.glob(wildcard)))
 
 
 def annotation_to_mask(image, object_id=1):
@@ -19,7 +24,7 @@ def annotation_to_mask(image, object_id=1):
 
     mask = np.zeros(image.shape, dtype=np.uint8)
     mask[image == object_id] = 255
-    return Image.fromarray(mask).convert('L')
+    return mask
 
 
 def mask_to_bbox(mask):
@@ -38,7 +43,7 @@ def mask_to_bbox(mask):
 
 def convert_tensor(tensor: torch.Tensor, frame_type):
     if frame_type == 'image':
-        return tensor_to_image(tensor)
+        return tensor_to_image(tensor, rgb2bgr=False)
     elif frame_type == 'mask':
         return tensor_to_mask(tensor)
     elif frame_type == 'flow':
@@ -132,7 +137,7 @@ def denormalize_flow(flow):
     return flow
 
 
-def dilate_mask(x: torch.Tensor, size=3, iterations=3):
+def dilate_mask(x: torch.Tensor, size=5, iterations=3):
     if len(x.size()) == 3:
         x = x.unsqueeze(0)
         x = dilate_mask(x, size, iterations)
@@ -145,12 +150,12 @@ def dilate_mask(x: torch.Tensor, size=3, iterations=3):
     return x
 
 
-def warp_tensor(x, flow):
+def warp_tensor(x, flow, mode='bilinear'):
     assert x.size()[-2:] == flow.size()[-2:]
     grid = make_grid(x.size(), normalized=True).to(x.device)
     grid += 2 * flow
     grid = grid.permute(0, 2, 3, 1)
-    return F.grid_sample(x, grid, mode='bilinear', padding_mode='zeros', align_corners=True)
+    return F.grid_sample(x, grid, mode, padding_mode='zeros', align_corners=True)
 
 
 def make_grid(size, normalized=True):

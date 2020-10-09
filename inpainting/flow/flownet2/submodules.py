@@ -1,8 +1,9 @@
 # freda (todo) :
 
-import torch.nn as nn
-import torch
 import numpy as np
+import torch
+import torch.nn as nn
+
 
 def conv(batchNorm, in_planes, out_planes, kernel_size=3, stride=1):
     if batchNorm:

@@ -1,16 +1,15 @@
 import argparse
-import glob
 from os.path import basename
 
-import torch
 import pandas as pd
+import torch
 from tqdm import tqdm
 
 from inpainting import transforms
 from inpainting.algorithms import VideoTrackingAlgorithm
 from inpainting.load import SequenceDataset, MergeDataset
 from inpainting.save import save_frame, save_frames, save_dataframe
-from inpainting.utils import mask_to_bbox
+from inpainting.utils import mask_to_bbox, get_paths
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--images-dir', type=str, default='data/processed/tracking_and_segmentation/Images')
@@ -20,8 +19,8 @@ parser.add_argument('--dilation-size', type=int, default=5)
 parser.add_argument('--dilation-iterations', type=int, default=3)
 opt = parser.parse_args()
 
-images_dirs = list(sorted(glob.glob(f'{opt.images_dir}/*')))
-masks_dirs = list(sorted(glob.glob(f'{opt.masks_dir}/*')))
+images_dirs = get_paths(f'{opt.images_dir}/*')
+masks_dirs = get_paths(f'{opt.masks_dir}/*')
 sequence_names = list(map(basename, images_dirs))
 
 images_dataset = SequenceDataset(

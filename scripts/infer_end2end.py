@@ -1,9 +1,8 @@
 import argparse
-import glob
 from os.path import basename
 
-import torch
 import pandas as pd
+import torch
 from tqdm import tqdm
 
 from inpainting import transforms
@@ -11,7 +10,7 @@ from inpainting.algorithms import VideoTrackingAlgorithm, FlowGuidedVideoInpaint
     SingleFrameVideoInpaintingAlgorithm
 from inpainting.load import SequenceDataset, MergeDataset
 from inpainting.save import save_frame, save_frames, save_dataframe
-from inpainting.utils import mask_to_bbox, annotation_to_mask
+from inpainting.utils import mask_to_bbox, annotation_to_mask, get_paths
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--images-dir', type=str, default='data/demo/Images')
@@ -26,8 +25,8 @@ parser.add_argument('--inpainting-model', type=str, default='DeepFillv1')
 
 opt = parser.parse_args()
 
-images_dirs = list(sorted(glob.glob(f'{opt.images_dir}/*')))
-annotations_dirs = list(sorted(glob.glob(f'{opt.annotations_dir}/*')))
+images_dirs = get_paths(f'{opt.images_dir}/*')
+annotations_dirs = get_paths(f'{opt.annotations_dir}/*')
 sequence_names = list(map(basename, images_dirs))
 
 images_dataset = SequenceDataset(

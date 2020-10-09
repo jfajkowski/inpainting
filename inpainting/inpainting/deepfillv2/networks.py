@@ -1,7 +1,8 @@
-import torch
 import numpy as np
-import torch.nn.functional as F
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
 
 def init_weights(net, init_type='normal', gain=0.02):
     from torch.nn import init

@@ -1,5 +1,3 @@
-from argparse import Namespace
-
 from torch.nn import init
 
 from .resample2d_package.resample2d import Resample2d
@@ -11,6 +9,16 @@ from . import FlowNetSD
 from . import FlowNetFusion
 
 from .submodules import *
+from torch.nn import init
+
+from . import FlowNetC
+from . import FlowNetFusion
+from . import FlowNetS
+from . import FlowNetSD
+from .channelnorm_package.channelnorm import ChannelNorm
+from .resample2d_package.resample2d import Resample2d
+from .submodules import *
+
 'Parameter count = 162,518,834'
 
 class FlowNet2(nn.Module):

@@ -1,6 +1,7 @@
-from torch.nn.modules.module import Module
-from torch.autograd import Function, Variable
 import resample2d_cuda
+from torch.autograd import Function, Variable
+from torch.nn.modules.module import Module
+
 
 class Resample2dFunction(Function):
 

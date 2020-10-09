@@ -1,5 +1,4 @@
 import argparse
-import glob
 from os.path import basename
 
 import pandas as pd
@@ -10,6 +9,7 @@ from inpainting import transforms
 from inpainting.flow import select_flow_model
 from inpainting.load import SequenceDataset
 from inpainting.save import save_frames, save_dataframe
+from inpainting.utils import get_paths
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--images-dir', type=str, default='data/processed/flow_estimation/Images')
@@ -17,11 +17,11 @@ parser.add_argument('--results-dir', type=str, default='results/flow_estimation/
 parser.add_argument('--flow-model', type=str, default='FlowNet2')
 opt = parser.parse_args()
 
-images_dirs = list(sorted(glob.glob(f'{opt.images_dir}/*')))
+images_dirs = get_paths(f'{opt.images_dir}/*')
 sequence_names = list(map(basename, images_dirs))
 
 dataset = SequenceDataset(
-    list(glob.glob(f'{opt.images_dir}/*')),
+    images_dirs,
     'image',
     transform=transforms.ToTensor()
 )

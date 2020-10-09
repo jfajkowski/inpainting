@@ -5,7 +5,6 @@ from os.path import dirname
 import cv2 as cv
 import numpy as np
 import torch
-from PIL import Image
 
 from inpainting.utils import convert_tensor
 
@@ -26,10 +25,6 @@ def save_frames(frames, frames_dir, frame_type='image'):
 def save_frame(frame, path, frame_type='image', roi=None):
     makedirs(dirname(path), exist_ok=True)
 
-    if isinstance(frame, Image.Image):
-        frame.save(path)
-        return
-
     if isinstance(frame, torch.Tensor):
         frame = convert_tensor(frame, frame_type)
 
@@ -38,11 +33,12 @@ def save_frame(frame, path, frame_type='image', roi=None):
         with open(path, 'wb') as f_out:
             f_out.write(struct.pack('fii', float(202021.25), w, h))
             f_out.write(frame.astype(np.float32).tobytes())
-    else:
+    elif frame_type == 'image':
         if roi:
-            assert frame_type == 'image'
             frame = cv.rectangle(frame, roi[0], roi[1], (0, 0, 255))
-
+        frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
+        cv.imwrite(path, frame)
+    else:
         cv.imwrite(path, frame)
 
 

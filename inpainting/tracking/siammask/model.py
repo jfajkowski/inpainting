@@ -1,7 +1,6 @@
-import numpy as np
-
 from argparse import Namespace
 
+import numpy as np
 import torch
 
 from inpainting.tracking.siammask.config_helper import load_config

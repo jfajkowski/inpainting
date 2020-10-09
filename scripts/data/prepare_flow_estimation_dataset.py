@@ -1,13 +1,12 @@
 import argparse
-import glob
 import random
 from os.path import basename
 
 from tqdm import tqdm
 
-from inpainting.load import SequenceDataset, load_dataframe
+from inpainting.load import SequenceDataset
 from inpainting.save import save_frames
-from inpainting.utils import annotation_to_mask
+from inpainting.utils import get_paths
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--images-dir', type=str, default='data/interim/MPI-Sintel-complete/training/final')
@@ -19,8 +18,8 @@ opt = parser.parse_args()
 
 random.seed(opt.seed)
 
-images_dirs = list(sorted(glob.glob(f'{opt.images_dir}/*')))
-flows_dirs = list(sorted(glob.glob(f'{opt.flows_dir}/*')))
+images_dirs = get_paths(f'{opt.images_dir}/*')
+flows_dirs = get_paths(f'{opt.flows_dir}/*')
 sequence_names = list(map(basename, images_dirs))
 
 images_dataset = SequenceDataset(

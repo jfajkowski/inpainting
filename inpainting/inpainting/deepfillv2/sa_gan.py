@@ -1,10 +1,12 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from torch.autograd import Variable
-from .spectral import SpectralNorm
+
 from .networks import GatedConv2dWithActivation, GatedDeConv2dWithActivation, SNConvWithActivation, get_pad
+from .spectral import SpectralNorm
+
+
 class Self_Attn(nn.Module):
     """ Self attention Layer"""
     def __init__(self,in_dim,activation,with_attn=False):

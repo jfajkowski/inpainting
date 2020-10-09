@@ -1,7 +1,8 @@
-import torch
-from torch.nn.modules.module import Module
-from torch.autograd import Function
 import correlation_cuda
+import torch
+from torch.autograd import Function
+from torch.nn.modules.module import Module
+
 
 class CorrelationFunction(Function):
 

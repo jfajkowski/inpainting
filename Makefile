@@ -55,19 +55,22 @@ data : $(DATA_INTERIM_DIR)/DAVIS/Annotations/480p \
        $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/flow \
 	   $(DATA_INTERIM_DIR)/YouTube-VOS/test/JPEGImages \
 	   $(DATA_INTERIM_DIR)/YouTube-VOS/train/JPEGImages \
-   	   $(DATA_INTERIM_DIR)/YouTube-VOS/valid/JPEGImages
+   	   $(DATA_INTERIM_DIR)/YouTube-VOS/valid/JPEGImages \
+   	   $(DATA_FLOW_INPAINTING_DIR)/YouTube-VOS/test \
+   	   $(DATA_FLOW_INPAINTING_DIR)/YouTube-VOS/train \
+   	   $(DATA_FLOW_INPAINTING_DIR)/YouTube-VOS/valid
 
 $(DATA_INTERIM_DIR)/DAVIS/Annotations/480p : $(DATA_RAW_DIR)/DAVIS/Annotations/480p
 	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
                                          --interim-dir $@ \
-                                         --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
+                                         --crop $(CROP_RATIO) \
                                          --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
                                          --frame-type 'annotation'
 
 $(DATA_INTERIM_DIR)/DAVIS/JPEGImages/480p : $(DATA_RAW_DIR)/DAVIS/JPEGImages/480p
 	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
                                          --interim-dir $@ \
-                                         --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
+                                         --crop $(CROP_RATIO) \
                                          --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
                                          --frame-type 'image'
 
@@ -81,23 +84,28 @@ $(DATA_INTERIM_DIR)/DAVIS/ObjectStats : $(DATA_INTERIM_DIR)/DAVIS/Annotations/48
 $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/final : $(DATA_RAW_DIR)/MPI-Sintel-complete/training/final
 	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
                                          --interim-dir $@ \
-                                         --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
+                                         --crop $(CROP_RATIO) \
                                          --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
                                          --frame-type 'image'
 
 $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/flow : $(DATA_RAW_DIR)/MPI-Sintel-complete/training/flow
 	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
                                          --interim-dir $@ \
-                                         --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
+                                         --crop $(CROP_RATIO) \
                                          --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
                                          --frame-type 'flow'
 
 $(DATA_INTERIM_DIR)/YouTube-VOS/% : $(DATA_RAW_DIR)/YouTube-VOS/%
 	python scripts/data/adjust_frames.py --frames-dir $(word 1,$^) \
                                          --interim-dir $@ \
-                                         --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
+                                         --crop $(CROP_RATIO) \
                                          --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
                                          --frame-type 'image'
+
+$(DATA_FLOW_INPAINTING_DIR)/YouTube-VOS/% &: $(DATA_INTERIM_DIR)/YouTube-VOS/%
+	python scripts/infer_flow_estimation.py --images-dir $(word 1,$^)/JPEGImages \
+                                            --results-dir $@ \
+                                            --flow-model $(FLOW_MODEL)
 
 #################################################################################
 # EXPERIMENTS                                                                   #
@@ -148,6 +156,7 @@ $(RESULTS_FLOW_INPAINTING_DIR)/Benchmark $(RESULTS_FLOW_INPAINTING_DIR)/Flows &:
                                        --masks-dir $(word 2,$^) \
                                        --results-dir $(dir $@) \
                                        --inpainting-model $(FLOW_INPAINTING_MODEL) \
+                                       --flow-model $(FLOW_MODEL) \
                                        --mode 'flow_inpainting'
 
 $(DATA_FLOW_INPAINTING_DIR)/Flows $(DATA_FLOW_INPAINTING_DIR)/Masks &: $(DATA_INTERIM_DIR)/MPI-Sintel-complete/training/flow \
@@ -180,6 +189,7 @@ $(RESULTS_IMAGE_INPAINTING_DIR)/Benchmark $(RESULTS_IMAGE_INPAINTING_DIR)/Images
                                        --masks-dir $(word 2,$^) \
                                        --results-dir $(dir $@) \
                                        --inpainting-model $(IMAGE_INPAINTING_MODEL) \
+                                       --flow-model $(FLOW_MODEL) \
                                        --mode 'image_inpainting'
 
 $(DATA_IMAGE_INPAINTING_DIR)/Images $(DATA_IMAGE_INPAINTING_DIR)/Masks &: $(DATA_INTERIM_DIR)/DAVIS/JPEGImages/480p \
@@ -242,7 +252,7 @@ $(RESULTS_E2E_DIR)/Benchmark $(RESULTS_E2E_DIR)/Initialization $(RESULTS_E2E_DIR
 	python scripts/infer_end2end.py --images-dir $(word 1,$^) \
                                     --annotations-dir $(word 2,$^) \
 						            --results-dir $(dir $@) \
-						            --crop $(CROP_WIDTH) $(CROP_HEIGHT) \
+                                    --crop $(CROP_RATIO) \
 						            --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
 						            --dilation-size $(DILATION_SIZE) \
 						            --dilation-iterations $(DILATION_ITERATIONS) \

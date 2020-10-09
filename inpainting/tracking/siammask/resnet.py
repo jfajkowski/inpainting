@@ -1,8 +1,10 @@
-import torch.nn as nn
-import torch
-from torch.autograd import Variable
 import math
+
+import torch
+import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
+from torch.autograd import Variable
+
 from .features import Features
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',

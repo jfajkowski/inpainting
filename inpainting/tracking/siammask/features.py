@@ -3,9 +3,10 @@
 # Licensed under The MIT License
 # Written by Qiang Wang (wangqiang2015 at ia.ac.cn)
 # --------------------------------------------------------
+import logging
+
 import torch
 import torch.nn as nn
-import logging
 
 logger = logging.getLogger('global')
 

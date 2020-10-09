@@ -4,27 +4,18 @@
 # Written by Qiang Wang (wangqiang2015 at ia.ac.cn)
 # --------------------------------------------------------
 from __future__ import division
+
 import argparse
-import logging
-import numpy as np
+
 import cv2
-from PIL import Image
-from os import makedirs
-from os.path import join, isdir, isfile
-
-from .log_helper import init_log, add_file_handler
-from .load_helper import load_pretrain
-from .bbox_helper import get_axis_aligned_bbox, cxy_wh_2_rect
-from .benchmark_helper import load_dataset
-
+import numpy as np
 import torch
-from torch.autograd import Variable
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 from .anchors import Anchors
+from .bbox_helper import cxy_wh_2_rect
 from .tracker_config import TrackerConfig
-
-from .config_helper import load_config
 
 thrs = np.arange(0.3, 0.5, 0.05)
 

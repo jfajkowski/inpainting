@@ -1,11 +1,10 @@
 import abc
 
+import cv2 as cv
 import numpy as np
 import torch
 from PIL import Image
 from torchvision.transforms import functional as F
-
-from inpainting.utils import tensor_to_flow
 
 
 class Transform(abc.ABC):
@@ -52,19 +51,23 @@ class ToTensor(Transform):
 
 class CenterCrop(Transform):
 
-    def __init__(self, size, frame_type):
-        self.size = size
+    def __init__(self, ratio, frame_type):
+        self.ratio = ratio
         self.frame_type = frame_type
 
     def transform_sample(self, sample, params):
-        if self.frame_type == 'flow':
-            _, image_width, image_height = sample.shape
-            crop_height, crop_width = self.size
-            crop_left = int(round((image_width - crop_width) / 2.))
-            crop_top = int(round((image_height - crop_height) / 2.))
-            return sample[:, crop_left:crop_left + crop_width, crop_top:crop_top + crop_height]
+        image_height, image_width = sample.shape[:2]
 
-        return F.center_crop(sample, self.size)
+        if image_height > image_width:
+            crop_height = image_height
+            crop_width = round(crop_height * self.ratio)
+        else:
+            crop_width = image_width
+            crop_height = round(crop_width / self.ratio)
+
+        crop_left = int(round((image_width - crop_width) / 2.))
+        crop_top = int(round((image_height - crop_height) / 2.))
+        return sample[crop_top:crop_top + crop_height, crop_left:crop_left + crop_width, :]
 
 
 class Resize(Transform):
@@ -74,13 +77,11 @@ class Resize(Transform):
         self.frame_type = frame_type
 
     def transform_sample(self, sample, params):
-        if self.frame_type == 'flow':
-            return tensor_to_flow(
-                (torch.nn.functional.interpolate(F.to_tensor(sample).unsqueeze(0), self.size)).squeeze(0))
-        elif self.frame_type == 'annotation' or self.frame_type == 'mask':
-            return F.resize(sample, self.size, Image.NEAREST)
+        if self.frame_type == 'image':
+            interpolation = cv.INTER_LINEAR
         else:
-            return F.resize(sample, self.size, Image.BILINEAR)
+            interpolation = cv.INTER_NEAREST
+        return cv.resize(sample, tuple(self.size[::-1]), interpolation=interpolation)
 
 
 class Lambda(Transform):

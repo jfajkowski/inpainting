@@ -1,12 +1,13 @@
-from .siammask_sharp import SiamMask
-from .features import MultiStageFeature
-from .rpn import RPN, DepthCorr
-from .mask import Mask
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from .features import MultiStageFeature
 from .load_helper import load_pretrain
+from .mask import Mask
 from .resnet import resnet50
+from .rpn import RPN, DepthCorr
+from .siammask_sharp import SiamMask
 
 
 class ResDownS(nn.Module):

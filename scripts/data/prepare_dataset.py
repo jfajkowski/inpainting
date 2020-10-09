@@ -1,5 +1,4 @@
 import argparse
-import glob
 import random
 from os.path import basename
 
@@ -7,7 +6,7 @@ from tqdm import tqdm
 
 from inpainting.load import SequenceDataset, load_dataframe
 from inpainting.save import save_frames
-from inpainting.utils import annotation_to_mask
+from inpainting.utils import annotation_to_mask, get_paths
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--frames-dir', type=str, default='data/interim/DAVIS/JPEGImages/480p')
@@ -21,9 +20,9 @@ opt = parser.parse_args()
 
 random.seed(opt.seed)
 
-frames_dirs = list(sorted(glob.glob(f'{opt.frames_dir}/*')))
-annotations_dirs = list(sorted(glob.glob(f'{opt.annotations_dir}/*')))
-object_stats_dirs = list(sorted(glob.glob(f'{opt.object_stats_dir}/*')))
+frames_dirs = get_paths(f'{opt.frames_dir}/*')
+annotations_dirs = get_paths(f'{opt.annotations_dir}/*')
+object_stats_dirs = get_paths(f'{opt.object_stats_dir}/*')
 background_sequence_names = list(map(basename, frames_dirs))
 foreground_sequence_names = list(map(basename, annotations_dirs))
 

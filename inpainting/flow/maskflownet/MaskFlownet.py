@@ -1,12 +1,14 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-import numpy as np
 from torchvision import ops
-# ops.DeformConv2d()
 
 from .correlation_package.correlation import Correlation
+
+
+# ops.DeformConv2d()
 
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1, activation=True):

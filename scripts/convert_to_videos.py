@@ -1,5 +1,4 @@
 import argparse
-import glob
 from os.path import basename
 
 from tqdm import tqdm
@@ -7,6 +6,7 @@ from tqdm import tqdm
 from inpainting import transforms
 from inpainting.load import SequenceDataset
 from inpainting.save import save_video
+from inpainting.utils import get_paths
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--frames-dir', type=str, default='results/end2end/default/Images')
@@ -15,7 +15,7 @@ parser.add_argument('--frame-type', type=str, default='image')
 parser.add_argument('--frame-rate', type=int, default=24)
 opt = parser.parse_args()
 
-frames_dirs = list(sorted(glob.glob(f'{opt.frames_dir}/*')))
+frames_dirs = get_paths(f'{opt.frames_dir}/*')
 sequence_names = list(map(basename, frames_dirs))
 
 frames_dataset = SequenceDataset(

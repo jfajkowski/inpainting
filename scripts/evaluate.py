@@ -1,5 +1,4 @@
 import argparse
-import glob
 from os.path import basename
 
 import torch
@@ -9,6 +8,7 @@ from inpainting import transforms
 from inpainting.evaluate import evaluate_inpainting, evaluate_segmentation, evaluate_flow
 from inpainting.load import SequenceDataset, MergeDataset
 from inpainting.save import save_dataframe
+from inpainting.utils import get_paths
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--output-frames-dir', type=str, default='results/demo/Tracker/OutputMasks')
@@ -30,8 +30,8 @@ elif 'flow' in opt.mode:
 else:
     raise ValueError(opt.mode)
 
-output_frames_dirs = list(sorted(glob.glob(f'{opt.output_frames_dir}/*')))
-target_frames_dirs = list(sorted(glob.glob(f'{opt.target_frames_dir}/*')))
+output_frames_dirs = get_paths(f'{opt.output_frames_dir}/*')
+target_frames_dirs = get_paths(f'{opt.target_frames_dir}/*')
 sequence_names = list(map(basename, output_frames_dirs))
 
 output_frames_dataset = SequenceDataset(output_frames_dirs, sequence_type)
