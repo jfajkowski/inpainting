@@ -1,6 +1,22 @@
 .PHONY: install data videos ts ii fe fi ee
 .SECONDARY: ## Save all intermediate files
 
+
+#################################################################################
+# DATA PARAMETERS                                                               #
+#################################################################################
+
+SEED = 42
+
+CROP_RATIO = 2
+SCALE_WIDTH = 512
+SCALE_HEIGHT = 256
+
+SAMPLES = 100
+MIN_PRESENCE = 0.5
+MIN_MEAN_SIZE = 0.01
+MAX_MEAN_SIZE = 0.25
+
 #################################################################################
 # CONFIG                                                                        #
 #################################################################################
@@ -13,26 +29,27 @@ include $(CONFIG)
 # DIRECTORIES                                                                   #
 #################################################################################
 
-VIDEO_DATASET = DAVIS
-FLOW_DATASET = MPI-Sintel-complete
+EXPERIMENT = demo
+VIDEO_DATASET = demo
+FLOW_DATASET = demo
 
 DATA_DIR = data
 DATA_RAW_DIR = $(DATA_DIR)/raw
 DATA_INTERIM_DIR = $(DATA_DIR)/interim
 DATA_PROCESSED_DIR = $(DATA_DIR)/processed
 
-DATA_FE_DIR = $(DATA_PROCESSED_DIR)/fe/$(FLOW_DATASET)
-DATA_FI_DIR = $(DATA_PROCESSED_DIR)/fi/$(FLOW_DATASET)
-DATA_II_DIR = $(DATA_PROCESSED_DIR)/ii/$(VIDEO_DATASET)
-DATA_TS_DIR = $(DATA_PROCESSED_DIR)/ts/$(VIDEO_DATASET)
-DATA_EE_DIR = $(DATA_INTERIM_DIR)/$(VIDEO_DATASET)
+DATA_FE_DIR = $(DATA_PROCESSED_DIR)/$(EXPERIMENT)/fe
+DATA_FI_DIR = $(DATA_PROCESSED_DIR)/$(EXPERIMENT)/fi
+DATA_II_DIR = $(DATA_PROCESSED_DIR)/$(EXPERIMENT)/ii
+DATA_TS_DIR = $(DATA_PROCESSED_DIR)/$(EXPERIMENT)/ts
+DATA_EE_DIR = $(DATA_PROCESSED_DIR)/$(EXPERIMENT)/ee
 
 RESULTS_DIR = results
-RESULTS_FE_DIR = $(RESULTS_DIR)/fe/$(FLOW_DATASET)/$(basename $(CONFIG))
-RESULTS_FI_DIR = $(RESULTS_DIR)/fi/$(FLOW_DATASET)/$(basename $(CONFIG))
-RESULTS_II_DIR = $(RESULTS_DIR)/ii/$(VIDEO_DATASET)/$(basename $(CONFIG))
-RESULTS_TS_DIR = $(RESULTS_DIR)/ts/$(VIDEO_DATASET)/$(basename $(CONFIG))
-RESULTS_EE_DIR = $(RESULTS_DIR)/ee/$(VIDEO_DATASET)/$(basename $(CONFIG))
+RESULTS_FE_DIR = $(RESULTS_DIR)/$(EXPERIMENT)/fe/$(basename $(CONFIG))
+RESULTS_FI_DIR = $(RESULTS_DIR)/$(EXPERIMENT)/fi/$(basename $(CONFIG))
+RESULTS_II_DIR = $(RESULTS_DIR)/$(EXPERIMENT)/ii/$(basename $(CONFIG))
+RESULTS_TS_DIR = $(RESULTS_DIR)/$(EXPERIMENT)/ts/$(basename $(CONFIG))
+RESULTS_EE_DIR = $(RESULTS_DIR)/$(EXPERIMENT)/ee/$(basename $(CONFIG))
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -82,13 +99,6 @@ $(DATA_INTERIM_DIR)/$(VIDEO_DATASET)/ObjectStats : $(DATA_RAW_DIR)/$(VIDEO_DATAS
 												  --max-mean-size $(MAX_MEAN_SIZE)
 
 ## Prepare videos
-videos : $(DATA_TS_DIR)/ImageVideos $(DATA_TS_DIR)/MaskVideos $(RESULTS_TS_DIR)/MaskVideos \
-         $(DATA_II_DIR)/ImageVideos $(DATA_II_DIR)/MaskVideos $(RESULTS_II_DIR)/ImageVideos \
-         $(DATA_FE_DIR)/ImageVideos $(DATA_FE_DIR)/FlowVideos $(RESULTS_FE_DIR)/FlowVideos \
-         $(DATA_FI_DIR)/FlowVideos $(DATA_FI_DIR)/MaskVideos $(RESULTS_FI_DIR)/FlowVideos \
-         $(DATA_EE_DIR)/ImageVideos $(RESULTS_EE_DIR)/ImageVideos $(RESULTS_EE_DIR)/MaskVideos
-
-
 %/FlowVideos : %/Flows
 	python scripts/convert_to_videos.py --frames-dir $^ \
 	                                    --videos-dir $@ \
@@ -111,7 +121,10 @@ videos : $(DATA_TS_DIR)/ImageVideos $(DATA_TS_DIR)/MaskVideos $(RESULTS_TS_DIR)/
 ts : $(RESULTS_TS_DIR)/Benchmark \
 	 $(RESULTS_TS_DIR)/Evaluation \
 	 $(RESULTS_TS_DIR)/Initialization \
-	 $(RESULTS_TS_DIR)/Masks
+	 $(RESULTS_TS_DIR)/Masks \
+	 $(DATA_TS_DIR)/ImageVideos \
+	 $(DATA_TS_DIR)/MaskVideos \
+	 $(RESULTS_TS_DIR)/MaskVideos
 
 $(RESULTS_TS_DIR)/Evaluation : $(RESULTS_TS_DIR)/Masks \
                                $(DATA_TS_DIR)/Masks
@@ -144,7 +157,10 @@ $(DATA_TS_DIR)/Images $(DATA_TS_DIR)/Masks &: $(DATA_INTERIM_DIR)/$(VIDEO_DATASE
 ## Image inpainting
 ii : $(RESULTS_II_DIR)/Benchmark \
 	 $(RESULTS_II_DIR)/Evaluation \
-     $(RESULTS_II_DIR)/Images
+     $(RESULTS_II_DIR)/Images \
+     $(DATA_II_DIR)/ImageVideos \
+     $(DATA_II_DIR)/MaskVideos \
+     $(RESULTS_II_DIR)/ImageVideos
 
 $(RESULTS_II_DIR)/Evaluation : $(RESULTS_II_DIR)/Images \
                                $(DATA_II_DIR)/Images
@@ -177,7 +193,10 @@ $(DATA_II_DIR)/Images $(DATA_II_DIR)/Masks &: $(DATA_INTERIM_DIR)/$(VIDEO_DATASE
 ## Flow estimation
 fe : $(RESULTS_FE_DIR)/Benchmark \
      $(RESULTS_FE_DIR)/Evaluation \
-     $(RESULTS_FE_DIR)/Flows
+     $(RESULTS_FE_DIR)/Flows \
+     $(DATA_FE_DIR)/ImageVideos \
+     $(DATA_FE_DIR)/FlowVideos \
+     $(RESULTS_FE_DIR)/FlowVideos
 
 $(RESULTS_FE_DIR)/Evaluation : $(RESULTS_FE_DIR)/Flows \
                                $(DATA_FE_DIR)/Flows
@@ -202,7 +221,10 @@ $(DATA_FE_DIR)/Images $(DATA_FE_DIR)/Flows &: $(DATA_INTERIM_DIR)/$(FLOW_DATASET
 ## Flow inpainting
 fi : $(RESULTS_FI_DIR)/Benchmark \
 	 $(RESULTS_FI_DIR)/Evaluation \
-     $(RESULTS_FI_DIR)/Flows
+     $(RESULTS_FI_DIR)/Flows \
+     $(DATA_FI_DIR)/FlowVideos \
+     $(DATA_FI_DIR)/MaskVideos \
+     $(RESULTS_FI_DIR)/FlowVideos
 
 $(RESULTS_FI_DIR)/Evaluation : $(RESULTS_FI_DIR)/Flows \
                                $(DATA_FI_DIR)/Flows
@@ -236,16 +258,29 @@ $(DATA_FI_DIR)/Flows $(DATA_FI_DIR)/Masks &: $(DATA_INTERIM_DIR)/$(FLOW_DATASET)
 ee : $(RESULTS_EE_DIR)/Benchmark \
      $(RESULTS_EE_DIR)/Initialization \
      $(RESULTS_EE_DIR)/Images \
-     $(RESULTS_EE_DIR)/Masks
+     $(RESULTS_EE_DIR)/Masks \
+     $(DATA_EE_DIR)/ImageVideos \
+     $(RESULTS_EE_DIR)/ImageVideos \
+     $(RESULTS_EE_DIR)/MaskVideos
 
 $(RESULTS_EE_DIR)/Benchmark $(RESULTS_EE_DIR)/Initialization $(RESULTS_EE_DIR)/Images $(RESULTS_EE_DIR)/Masks &: $(DATA_EE_DIR)/Images \
-                                                                                                                 $(DATA_EE_DIR)/Annotations
+                                                                                                                 $(DATA_EE_DIR)/Masks
 	python scripts/infer_end2end.py --images-dir $(word 1,$^) \
-                                    --annotations-dir $(word 2,$^) \
+                                    --masks-dir $(word 2,$^) \
 						            --results-dir $(dir $@) \
-                                    --crop $(CROP_RATIO) \
-						            --scale $(SCALE_WIDTH) $(SCALE_HEIGHT) \
 						            --dilation-size $(DILATION_SIZE) \
 						            --dilation-iterations $(DILATION_ITERATIONS) \
 						            --flow-model $(FLOW_MODEL) \
 						            --inpainting-model $(IMAGE_INPAINTING_MODEL)
+
+$(DATA_EE_DIR)/Images $(DATA_EE_DIR)/Masks &: $(DATA_INTERIM_DIR)/$(VIDEO_DATASET)/Images \
+											  $(DATA_INTERIM_DIR)/$(VIDEO_DATASET)/Annotations \
+											  $(DATA_INTERIM_DIR)/$(VIDEO_DATASET)/ObjectStats
+	python scripts/data/prepare_dataset.py --frames-dir $(word 1,$^) \
+										   --annotations-dir $(word 2,$^) \
+										   --object-stats-dir $(word 3,$^) \
+										   --processed-dir $(dir $@) \
+										   --limit-samples $(SAMPLES) \
+										   --seed $(SEED) \
+										   --frame-type 'image' \
+										   --mode 'match'

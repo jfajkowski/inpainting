@@ -10,14 +10,12 @@ from inpainting.algorithms import VideoTrackingAlgorithm, FlowGuidedVideoInpaint
     SingleFrameVideoInpaintingAlgorithm
 from inpainting.load import SequenceDataset, MergeDataset
 from inpainting.save import save_frame, save_frames, save_dataframe
-from inpainting.utils import mask_to_bbox, annotation_to_mask, get_paths
+from inpainting.utils import mask_to_bbox, get_paths
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--images-dir', type=str, default='data/raw/demo/Images')
-parser.add_argument('--annotations-dir', type=str, default='data/raw/demo/Annotations')
-parser.add_argument('--results-dir', type=str, default='results/ee/demo/default')
-parser.add_argument('--crop', type=float, default=2.0)
-parser.add_argument('--scale', type=int, nargs=2, default=(512, 256))
+parser.add_argument('--images-dir', type=str, default='data/interim/demo/Images')
+parser.add_argument('--masks-dir', type=str, default='data/interim/demo/Masks')
+parser.add_argument('--results-dir', type=str, default='results/demo/ee/default')
 parser.add_argument('--dilation-size', type=int, default=5)
 parser.add_argument('--dilation-iterations', type=int, default=3)
 parser.add_argument('--flow-model', type=str, default='FlowNet2')
@@ -26,27 +24,18 @@ parser.add_argument('--inpainting-model', type=str, default='DeepFillv1')
 opt = parser.parse_args()
 
 images_dirs = get_paths(f'{opt.images_dir}/*')
-annotations_dirs = get_paths(f'{opt.annotations_dir}/*')
+masks_dirs = get_paths(f'{opt.masks_dir}/*')
 sequence_names = list(map(basename, images_dirs))
 
 images_dataset = SequenceDataset(
     images_dirs,
-    'image',
-    transform=transforms.Compose([
-        transforms.CenterCrop(opt.crop, 'image'),
-        transforms.Resize(opt.scale[::-1], 'image'),
-    ])
+    'image'
 )
-annotations_dataset = SequenceDataset(
-    annotations_dirs,
-    'annotation',
-    transform=transforms.Compose([
-        transforms.CenterCrop(opt.crop, 'annotation'),
-        transforms.Resize(opt.scale[::-1], 'annotation'),
-        transforms.Lambda(annotation_to_mask),
-    ])
+masks_dataset = SequenceDataset(
+    masks_dirs,
+    'annotation'
 )
-dataset = MergeDataset([images_dataset, annotations_dataset], transform=transforms.ToTensor())
+dataset = MergeDataset([images_dataset, masks_dataset], transform=transforms.ToTensor())
 
 with torch.no_grad():
     tracking_algorithm = VideoTrackingAlgorithm(opt.dilation_size, opt.dilation_iterations)
