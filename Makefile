@@ -13,8 +13,8 @@ include $(CONFIG)
 # DIRECTORIES                                                                   #
 #################################################################################
 
-VIDEO_DATASET = demo
-FLOW_DATASET = demo
+VIDEO_DATASET = DAVIS
+FLOW_DATASET = MPI-Sintel-complete
 
 DATA_DIR = data
 DATA_RAW_DIR = $(DATA_DIR)/raw
