@@ -30,7 +30,7 @@ if opt.images_dir == 'camera':
             return str(cap.get(cv.CAP_PROP_FRAME_WIDTH)), str(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
 
         cap = cv.VideoCapture(0)
-        set_res(cap, *opt.size)
+        set_res(cap, *opt.scale)
 
         while True:
             _, image = cap.read()

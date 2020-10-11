@@ -4,7 +4,7 @@ from typing import List
 import torch
 
 from inpainting.flow import select_flow_model
-from inpainting.inpainting import select_inpainting_model
+from inpainting.inpainting import select_inpainting_model, Inpainter
 from inpainting.inpainting.region_fill import inpaint
 from inpainting.tracking.siammask.model import SiamMaskModel
 from inpainting.utils import make_grid, warp_tensor, normalize_flow, dilate_mask
@@ -40,6 +40,7 @@ class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
 
         self.eps = eps
 
+        self.flow_inpainting = inpaint
         self.flow_model = select_flow_model(flow_model)
 
         self.previous_mask = None
@@ -58,11 +59,14 @@ class FlowGuidedVideoInpaintingAlgorithm(SingleFrameVideoInpaintingAlgorithm):
     def inpaint_online(self, current_image: torch.Tensor, current_mask: torch.Tensor) -> torch.Tensor:
 
         if self.previous_available:
-            forward_flow = self.flow_model(self.previous_image, current_image)
-            forward_flow_filled = normalize_flow(inpaint(forward_flow, self.previous_mask))
+            image_input_1 = torch.cat([self.previous_image, current_image])
+            image_input_2 = torch.cat([current_image, self.previous_image])
+            flows = self.flow_model(image_input_1, image_input_2)
+            masks = torch.cat([self.previous_mask, current_mask])
+            flows_filled = normalize_flow(self.flow_inpainting(flows, masks))
 
-            backward_flow = self.flow_model(current_image, self.previous_image)
-            backward_flow_filled = normalize_flow(inpaint(backward_flow, current_mask))
+            forward_flow, backward_flow = torch.chunk(flows, 2)
+            forward_flow_filled, backward_flow_filled = torch.chunk(flows_filled, 2)
 
             grid = make_grid(current_image.size(), normalized=False).to(current_image.device)
             flow_propagation_error = warp_tensor(warp_tensor(grid, backward_flow_filled), forward_flow_filled) - grid
